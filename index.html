@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header / Search Bar -->
+    <header class="header">
+      <h1>Weather Dashboard</h1>
+      <form id="search-form" class="search-form">
+        <input 
+          type="text" 
+          id="city-input" 
+          placeholder="Search for a city (e.g., Tokyo, London, Delhi)..." 
+          autocomplete="off" 
+          required 
+        />
+        <button type="submit" id="search-btn">Search</button>
+      </form>
+    </header>
+
+    <!-- Error Banner (Hidden by default) -->
+    <div id="error-message" class="error-banner hidden">
+      <span id="error-text">City not found. Please try again.</span>
+    </div>
+
+    <!-- Loading Spinner (Hidden by default) -->
+    <div id="loading-spinner" class="spinner-container hidden">
+      <div class="spinner"></div>
+      <p>Fetching weather data...</p>
+    </div>
+
+    <!-- Weather Content (Shown when data is loaded) -->
+    <main id="weather-content" class="weather-content hidden">
+      <!-- Current Weather Card -->
+      <section class="current-weather-card">
+        <div class="current-header">
+          <div>
+            <h2 id="city-name">--</h2>
+            <p id="current-date" class="date-text">--</p>
+          </div>
+          <div class="condition-badge">
+            <img id="weather-icon" src="" alt="Weather Icon" />
+            <span id="weather-condition">--</span>
+          </div>
+        </div>
+
+        <div class="current-body">
+          <div class="temp-display">
+            <span id="temperature" class="temp-val">--</span>
+            <span class="unit">°C</span>
+          </div>
+          <p class="feels-like">Feels like: <span id="feels-like">--</span>°C</p>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <span class="metric-label">Humidity</span>
+            <span id="humidity" class="metric-value">--%</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Wind Speed</span>
+            <span id="wind-speed" class="metric-value">-- m/s</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Pressure</span>
+            <span id="pressure" class="metric-value">-- hPa</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Visibility</span>
+            <span id="visibility" class="metric-value">-- km</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5-Day Forecast -->
+      <section class="forecast-section">
+        <h3>5-Day Forecast</h3>
+        <div id="forecast-cards" class="forecast-grid">
+          <!-- Populated dynamically by script.js -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Scripts: config.js must load before script.js -->
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
