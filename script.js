@@ -2,6 +2,7 @@
 const searchForm = document.getElementById('search-form');
 const cityInput = document.getElementById('city-input');
 const errorMessage = document.getElementById('error-message');
+const geoBtn = document.getElementById('geo-btn');
 const errorText = document.getElementById('error-text');
 const loadingSpinner = document.getElementById('loading-spinner');
 const weatherContent = document.getElementById('weather-content');
@@ -156,6 +157,65 @@ function showError(msg) {
 function hideError() {
   errorMessage.classList.add('hidden');
 }
+
+async function fetchWeatherByCoords(lat, lon) {
+  showLoading();
+  hideError();
+
+  try {
+    const currentWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
+
+    const [weatherRes, forecastRes] = await Promise.all([
+      fetch(currentWeatherUrl),
+      fetch(forecastUrl)
+    ]);
+
+    if (!weatherRes.ok || !forecastRes.ok) {
+      throw new Error('Failed to retrieve weather for your coordinates.');
+    }
+
+    const currentData = await weatherRes.json();
+    const forecastData = await forecastRes.json();
+
+    displayCurrentWeather(currentData);
+    displayForecast(forecastData);
+    showContent();
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+// Step 6: Geolocation Button Event Listener
+geoBtn.addEventListener('click', () => {
+  // Check if browser supports Geolocation
+  if (!navigator.geolocation) {
+    showError('Geolocation is not supported by your browser.');
+    return;
+  }
+
+  showLoading();
+  hideError();
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      await fetchWeatherByCoords(lat, lon);
+    },
+    (err) => {
+      hideLoading();
+      // Handle user denying permission or timeout
+      if (err.code === err.PERMISSION_DENIED) {
+        showError('Location access was denied. Please allow permission or search manually.');
+      } else {
+        showError('Unable to retrieve your location. Please try again.');
+      }
+    }
+  );
+});
 
 // Initial fetch on page load (Default city)
 fetchWeatherData('Delhi');

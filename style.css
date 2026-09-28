@@ -77,6 +77,29 @@ body {
   transform: scale(0.98);
 }
 
+#geo-btn {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 14px 18px;
+  font-size: 1.2rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#geo-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  transform: scale(1.05);
+}
+
+#geo-btn:active {
+  transform: scale(0.95);
+}
+
 /* Utility */
 .hidden {
   display: none !important;
