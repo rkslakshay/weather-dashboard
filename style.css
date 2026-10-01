@@ -206,6 +206,23 @@ body {
   margin-top: 4px;
 }
 
+.unit-toggle-btn {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+.unit-toggle-btn:hover {
+  background: rgba(56, 189, 248, 0.3);
+}
+
 /* Metrics Grid */
 .metrics-grid {
   display: grid;

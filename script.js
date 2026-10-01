@@ -6,6 +6,9 @@ const geoBtn = document.getElementById('geo-btn');
 const errorText = document.getElementById('error-text');
 const loadingSpinner = document.getElementById('loading-spinner');
 const weatherContent = document.getElementById('weather-content');
+const unitToggle = document.getElementById('unit-toggle');
+const unitLabel = document.getElementById('unit-label');
+const feelsUnit = document.getElementById('feels-unit');
 
 // Current weather elements
 const cityName = document.getElementById('city-name');
@@ -22,6 +25,10 @@ const forecastCards = document.getElementById('forecast-cards');
 
 // Read the API Key from config.js
 const API_KEY = CONFIG.API_KEY;
+let isCelsius = true;
+let rawTempC = 0;
+let rawFeelsC = 0;
+let rawForecastTemps = [];
 
 // Step 2: Form submit event listener
 searchForm.addEventListener('submit', async (e) => {
@@ -97,8 +104,14 @@ function displayCurrentWeather(data) {
   weatherIcon.src = `https://openweathermap.org/img/wn/${condition.icon}@2x.png`;
   weatherIcon.alt = condition.description;
 
-  temperature.textContent = Math.round(data.main.temp);
-  feelsLike.textContent = Math.round(data.main.feels_like);
+  rawTempC = data.main.temp;
+  rawFeelsC = data.main.feels_like;
+  isCelsius = true;
+  unitLabel.textContent = '°C';
+  feelsUnit.textContent = '°C';
+  unitToggle.textContent = 'Switch to °F';
+  temperature.textContent = Math.round(rawTempC);
+  feelsLike.textContent = Math.round(rawFeelsC);
   humidity.textContent = `${data.main.humidity}%`;
   windSpeed.textContent = `${data.wind.speed} m/s`;
   pressure.textContent = `${data.main.pressure} hPa`;
@@ -108,6 +121,7 @@ function displayCurrentWeather(data) {
 // Step 5: Render 5-Day Forecast
 function displayForecast(data) {
   forecastCards.innerHTML = ''; // Clear previous cards
+  rawForecastTemps = [];
 
   // OpenWeatherMap gives readings every 3 hours (40 entries total).
   // Filter for readings around noon (12:00:00) to get one card per day.
@@ -119,6 +133,7 @@ function displayForecast(data) {
     const dateObj = new Date(reading.dt * 1000);
     const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
     const temp = Math.round(reading.main.temp);
+    rawForecastTemps.push(reading.main.temp);
     const desc = reading.weather[0].description;
     const icon = reading.weather[0].icon;
 
@@ -215,6 +230,36 @@ geoBtn.addEventListener('click', () => {
       }
     }
   );
+});
+
+// Temperature Unit Toggle
+unitToggle.addEventListener('click', () => {
+  isCelsius = !isCelsius;
+
+  if (isCelsius) {
+    temperature.textContent = Math.round(rawTempC);
+    feelsLike.textContent = Math.round(rawFeelsC);
+    unitLabel.textContent = '°C';
+    feelsUnit.textContent = '°C';
+    unitToggle.textContent = 'Switch to °F';
+  } else {
+    temperature.textContent = Math.round((rawTempC * 9/5) + 32);
+    feelsLike.textContent = Math.round((rawFeelsC * 9/5) + 32);
+    unitLabel.textContent = '°F';
+    feelsUnit.textContent = '°F';
+    unitToggle.textContent = 'Switch to °C';
+  }
+
+  // Update forecast cards
+  const forecastTempElements = document.querySelectorAll('.forecast-temp');
+  forecastTempElements.forEach((el, index) => {
+    if (rawForecastTemps[index] !== undefined) {
+      const temp = isCelsius
+        ? Math.round(rawForecastTemps[index])
+        : Math.round((rawForecastTemps[index] * 9/5) + 32);
+      el.textContent = `${temp}${isCelsius ? '°C' : '°F'}`;
+    }
+  });
 });
 
 // Initial fetch on page load (Default city)
