@@ -1,3 +1,27 @@
+:root {
+  --bg-gradient-start: #1e293b;
+  --bg-gradient-end: #0f172a;
+  --card-bg: rgba(15, 23, 42, 0.6);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-color: #38bdf8;
+  --input-bg: rgba(15, 23, 42, 0.8);
+  --input-border: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] {
+  --bg-gradient-start: #e0f2fe;
+  --bg-gradient-end: #bae6fd;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --card-border: rgba(0, 0, 0, 0.1);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --accent-color: #0284c7;
+  --input-bg: rgba(255, 255, 255, 0.95);
+  --input-border: rgba(0, 0, 0, 0.2);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -6,24 +30,26 @@
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  color: #f8fafc;
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  color: var(--text-primary);
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 40px 20px;
+  transition: background 0.3s ease;
 }
 
 .app-container {
   width: 100%;
   max-width: 800px;
-  background: rgba(30, 41, 59, 0.7);
+  background: var(--card-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 32px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  transition: background 0.3s ease, border 0.3s ease;
 }
 
 /* Header & Search */
@@ -32,7 +58,29 @@ body {
   font-weight: 700;
   margin-bottom: 20px;
   text-align: center;
-  color: #38bdf8;
+  color: var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.theme-toggle-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 8px 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-btn:hover {
+  transform: scale(1.1);
+  background: rgba(56, 189, 248, 0.2);
 }
 
 .search-form {
@@ -44,10 +92,10 @@ body {
 .search-form input {
   flex: 1;
   padding: 14px 18px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1rem;
   outline: none;
   transition: border-color 0.2s;
@@ -111,7 +159,7 @@ body {
   align-items: center;
   margin-bottom: 10px;
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .clear-history-btn {
@@ -176,7 +224,7 @@ body {
   justify-content: center;
   padding: 40px 0;
   gap: 16px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .spinner {
@@ -194,18 +242,19 @@ body {
 
 /* Current Weather Card */
 .current-weather-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 28px;
+  transition: background 0.3s ease, border 0.3s ease;
 }
 
 .current-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--card-border);
   padding-bottom: 16px;
 }
 
@@ -216,7 +265,7 @@ body {
 
 .date-text {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
@@ -242,13 +291,13 @@ body {
 .temp-display {
   font-size: 3.5rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--accent-color);
 }
 
 .temp-display .unit {
   font-size: 1.8rem;
   vertical-align: super;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .unit-toggle-btn {
@@ -269,7 +318,7 @@ body {
 }
 
 .feels-like {
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 0.95rem;
   margin-top: 4px;
 }
@@ -295,7 +344,7 @@ body {
 
 .metric-label {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -303,6 +352,65 @@ body {
 .metric-value {
   font-size: 1rem;
   font-weight: 600;
+}
+
+/* Air Quality Index */
+.aqi-container {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.aqi-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.aqi-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.aqi-good {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #22c55e;
+}
+
+.aqi-fair {
+  background: rgba(250, 204, 21, 0.2);
+  border: 1px solid rgba(250, 204, 21, 0.5);
+  color: #facc15;
+}
+
+.aqi-moderate {
+  background: rgba(251, 146, 60, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.5);
+  color: #fb923c;
+}
+
+.aqi-poor {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+}
+
+.aqi-very-poor {
+  background: rgba(153, 27, 27, 0.3);
+  border: 1px solid rgba(153, 27, 27, 0.6);
+  color: #dc2626;
 }
 
 /* Hourly Forecast */
@@ -340,8 +448,8 @@ body {
 }
 
 .hourly-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 12px 16px;
   display: flex;
@@ -355,7 +463,7 @@ body {
 .hourly-time {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .hourly-card img {
@@ -382,8 +490,8 @@ body {
 }
 
 .forecast-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 16px 8px;
   display: flex;
@@ -396,7 +504,7 @@ body {
 .forecast-day {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .forecast-card img {
@@ -411,7 +519,7 @@ body {
 
 .forecast-desc {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   text-transform: capitalize;
 }
 

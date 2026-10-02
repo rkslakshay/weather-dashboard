@@ -14,7 +14,12 @@
   <div class="app-container">
     <!-- Header / Search Bar -->
     <header class="header">
-      <h1>Weather Dashboard</h1>
+      <h1>
+        Weather Dashboard
+        <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
+          <span class="theme-icon">☀️</span>
+        </button>
+      </h1>
       <form id="search-form" class="search-form">
         <input
           type="text"
@@ -89,6 +94,15 @@
           <div class="metric-box">
             <span class="metric-label">Visibility</span>
             <span id="visibility" class="metric-value">-- km</span>
+          </div>
+        </div>
+
+        <!-- Air Quality Index -->
+        <div id="aqi-container" class="aqi-container hidden">
+          <span class="aqi-label">Air Quality</span>
+          <div id="aqi-badge" class="aqi-badge">
+            <span id="aqi-value">--</span>
+            <span id="aqi-text">--</span>
           </div>
         </div>
       </section>

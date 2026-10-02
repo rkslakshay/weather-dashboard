@@ -9,6 +9,12 @@ const weatherContent = document.getElementById('weather-content');
 const searchHistory = document.getElementById('search-history');
 const historyChips = document.getElementById('history-chips');
 const clearHistoryBtn = document.getElementById('clear-history');
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = document.querySelector('.theme-icon');
+const aqiContainer = document.getElementById('aqi-container');
+const aqiBadge = document.getElementById('aqi-badge');
+const aqiValue = document.getElementById('aqi-value');
+const aqiText = document.getElementById('aqi-text');
 
 // Current weather elements
 const cityName = document.getElementById('city-name');
@@ -39,6 +45,8 @@ let rawFeelsC = 0;
 let rawForecastTemps = [];
 
 const MAX_HISTORY = 5;
+const AQI_LABELS = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
+const AQI_CLASSES = ['aqi-good', 'aqi-fair', 'aqi-moderate', 'aqi-poor', 'aqi-very-poor'];
 
 // Step 2: Form submit event listener
 searchForm.addEventListener('submit', async (e) => {
@@ -129,6 +137,9 @@ function displayCurrentWeather(data) {
   windSpeed.textContent = `${data.wind.speed} m/s`;
   pressure.textContent = `${data.main.pressure} hPa`;
   visibility.textContent = `${(data.visibility / 1000).toFixed(1)} km`;
+
+  // Fetch AQI using coordinates
+  fetchAQI(data.coord.lat, data.coord.lon);
 }
 
 // Step 5: Render 5-Day Forecast
@@ -349,6 +360,59 @@ clearHistoryBtn.addEventListener('click', () => {
   searchHistory.classList.add('hidden');
   historyChips.innerHTML = '';
 });
+
+// Fetch Air Quality Index
+async function fetchAQI(lat, lon) {
+  try {
+    const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`;
+    const response = await fetch(aqiUrl);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch AQI');
+    }
+
+    const data = await response.json();
+    const aqi = data.list[0].main.aqi; // 1-5 scale
+
+    aqiValue.textContent = aqi;
+    aqiText.textContent = AQI_LABELS[aqi - 1];
+
+    // Remove old classes and add new one
+    aqiBadge.className = 'aqi-badge ' + AQI_CLASSES[aqi - 1];
+    aqiContainer.classList.remove('hidden');
+  } catch (err) {
+    console.error('AQI fetch failed:', err);
+    aqiContainer.classList.add('hidden');
+  }
+}
+
+// Theme Toggle
+function loadTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  if (savedTheme === 'light') {
+    document.body.dataset.theme = 'light';
+    themeIcon.textContent = '🌙';
+  } else {
+    delete document.body.dataset.theme;
+    themeIcon.textContent = '☀️';
+  }
+}
+
+themeToggle.addEventListener('click', () => {
+  const currentTheme = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+
+  if (currentTheme === 'light') {
+    document.body.dataset.theme = 'light';
+    themeIcon.textContent = '🌙';
+    localStorage.setItem('theme', 'light');
+  } else {
+    delete document.body.dataset.theme;
+    themeIcon.textContent = '☀️';
+    localStorage.setItem('theme', 'dark');
+  }
+});
+
+loadTheme();
 
 // Load history on page load
 loadSearchHistory();
