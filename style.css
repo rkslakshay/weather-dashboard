@@ -251,12 +251,6 @@ body {
   color: #94a3b8;
 }
 
-.feels-like {
-  color: #94a3b8;
-  font-size: 0.95rem;
-  margin-top: 4px;
-}
-
 .unit-toggle-btn {
   background: rgba(56, 189, 248, 0.15);
   border: 1px solid rgba(56, 189, 248, 0.4);
@@ -272,6 +266,12 @@ body {
 
 .unit-toggle-btn:hover {
   background: rgba(56, 189, 248, 0.3);
+}
+
+.feels-like {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  margin-top: 4px;
 }
 
 /* Metrics Grid */
@@ -303,6 +303,69 @@ body {
 .metric-value {
   font-size: 1rem;
   font-weight: 600;
+}
+
+/* Hourly Forecast */
+.hourly-forecast-section {
+  margin-bottom: 24px;
+}
+
+.hourly-forecast-section h3 {
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.hourly-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.3) rgba(15, 23, 42, 0.3);
+}
+
+.hourly-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.hourly-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 10px;
+}
+
+.hourly-scroll::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+}
+
+.hourly-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.hourly-time {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.hourly-card img {
+  width: 40px;
+  height: 40px;
+}
+
+.hourly-temp {
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 /* Forecast Section */

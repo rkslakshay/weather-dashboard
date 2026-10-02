@@ -16,16 +16,17 @@
     <header class="header">
       <h1>Weather Dashboard</h1>
       <form id="search-form" class="search-form">
-        <input 
-          type="text" 
-          id="city-input" 
-          placeholder="Search for a city (e.g., Tokyo, London, Delhi)..." 
-          autocomplete="off" 
-          required 
+        <input
+          type="text"
+          id="city-input"
+          placeholder="Search for a city (e.g., Tokyo, London, Delhi)..."
+          autocomplete="off"
+          required
         />
         <button type="submit" id="search-btn">Search</button>
         <button type="button" id="geo-btn" title="Use current location">📍</button>
       </form>
+
       <!-- Search History -->
       <div id="search-history" class="search-history hidden">
         <div class="history-header">
@@ -90,6 +91,12 @@
             <span id="visibility" class="metric-value">-- km</span>
           </div>
         </div>
+      </section>
+
+      <!-- Hourly Forecast -->
+      <section class="hourly-forecast-section">
+        <h3>Next 12 Hours</h3>
+        <div id="hourly-forecast" class="hourly-scroll"></div>
       </section>
 
       <!-- 5-Day Forecast -->

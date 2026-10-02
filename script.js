@@ -6,9 +6,6 @@ const geoBtn = document.getElementById('geo-btn');
 const errorText = document.getElementById('error-text');
 const loadingSpinner = document.getElementById('loading-spinner');
 const weatherContent = document.getElementById('weather-content');
-const unitToggle = document.getElementById('unit-toggle');
-const unitLabel = document.getElementById('unit-label');
-const feelsUnit = document.getElementById('feels-unit');
 const searchHistory = document.getElementById('search-history');
 const historyChips = document.getElementById('history-chips');
 const clearHistoryBtn = document.getElementById('clear-history');
@@ -25,14 +22,23 @@ const windSpeed = document.getElementById('wind-speed');
 const pressure = document.getElementById('pressure');
 const visibility = document.getElementById('visibility');
 const forecastCards = document.getElementById('forecast-cards');
+const hourlyForecast = document.getElementById('hourly-forecast');
+
+// Temperature toggle elements
+const unitToggle = document.getElementById('unit-toggle');
+const unitLabel = document.getElementById('unit-label');
+const feelsUnit = document.getElementById('feels-unit');
 
 // Read the API Key from config.js
-const API_KEY = CONFIG.API_KEY;
-const MAX_HISTORY = 5;
+const API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : '5ff7e87116093c9b53407f7a546326c9';
+
+// State variables for temperature toggle
 let isCelsius = true;
 let rawTempC = 0;
 let rawFeelsC = 0;
 let rawForecastTemps = [];
+
+const MAX_HISTORY = 5;
 
 // Step 2: Form submit event listener
 searchForm.addEventListener('submit', async (e) => {
@@ -86,6 +92,7 @@ async function fetchWeatherData(city) {
     // Update UI with the retrieved data
     displayCurrentWeather(currentData);
     displayForecast(forecastData);
+    displayHourlyForecast(forecastData);
     saveToHistory(city);
     showContent();
   } catch (err) {
@@ -117,6 +124,7 @@ function displayCurrentWeather(data) {
   unitToggle.textContent = 'Switch to °F';
   temperature.textContent = Math.round(rawTempC);
   feelsLike.textContent = Math.round(rawFeelsC);
+
   humidity.textContent = `${data.main.humidity}%`;
   windSpeed.textContent = `${data.wind.speed} m/s`;
   pressure.textContent = `${data.main.pressure} hPa`;
@@ -154,6 +162,32 @@ function displayForecast(data) {
   });
 }
 
+// Step 5B: Render Hourly Forecast (Next 12 hours)
+function displayHourlyForecast(data) {
+  hourlyForecast.innerHTML = '';
+
+  // Take first 4 entries (each is 3 hours apart = 12 hours total)
+  const hourlyData = data.list.slice(0, 4);
+
+  hourlyData.forEach((reading) => {
+    const time = new Date(reading.dt * 1000).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      hour12: true
+    });
+    const temp = Math.round(reading.main.temp);
+    const icon = reading.weather[0].icon;
+
+    const card = document.createElement('div');
+    card.className = 'hourly-card';
+    card.innerHTML = `
+      <span class="hourly-time">${time}</span>
+      <img src="https://openweathermap.org/img/wn/${icon}.png" alt="weather" />
+      <span class="hourly-temp">${temp}°C</span>
+    `;
+    hourlyForecast.appendChild(card);
+  });
+}
+
 // UI State Helper Functions
 function showLoading() {
   loadingSpinner.classList.remove('hidden');
@@ -178,6 +212,7 @@ function hideError() {
   errorMessage.classList.add('hidden');
 }
 
+// Step 6A: Fetch weather using GPS coordinates
 async function fetchWeatherByCoords(lat, lon) {
   showLoading();
   hideError();
@@ -200,6 +235,7 @@ async function fetchWeatherByCoords(lat, lon) {
 
     displayCurrentWeather(currentData);
     displayForecast(forecastData);
+    displayHourlyForecast(forecastData);
     saveToHistory(currentData.name);
     showContent();
   } catch (err) {
@@ -209,9 +245,8 @@ async function fetchWeatherByCoords(lat, lon) {
   }
 }
 
-// Step 6: Geolocation Button Event Listener
+// Step 6B: Geolocation Button Event Listener
 geoBtn.addEventListener('click', () => {
-  // Check if browser supports Geolocation
   if (!navigator.geolocation) {
     showError('Geolocation is not supported by your browser.');
     return;
@@ -228,7 +263,6 @@ geoBtn.addEventListener('click', () => {
     },
     (err) => {
       hideLoading();
-      // Handle user denying permission or timeout
       if (err.code === err.PERMISSION_DENIED) {
         showError('Location access was denied. Please allow permission or search manually.');
       } else {
@@ -279,18 +313,18 @@ function loadSearchHistory() {
 
 function saveToHistory(city) {
   let history = JSON.parse(localStorage.getItem('searchHistory')) || [];
-  
+
   // Remove duplicate if exists
   history = history.filter(c => c.toLowerCase() !== city.toLowerCase());
-  
+
   // Add to front
   history.unshift(city);
-  
+
   // Keep only last 5
   if (history.length > MAX_HISTORY) {
     history = history.slice(0, MAX_HISTORY);
   }
-  
+
   localStorage.setItem('searchHistory', JSON.stringify(history));
   searchHistory.classList.remove('hidden');
   renderHistoryChips(history);
