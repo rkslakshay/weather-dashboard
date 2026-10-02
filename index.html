@@ -99,10 +99,24 @@
 
         <!-- Air Quality Index -->
         <div id="aqi-container" class="aqi-container hidden">
-          <span class="aqi-label">Air Quality</span>
-          <div id="aqi-badge" class="aqi-badge">
-            <span id="aqi-value">--</span>
-            <span id="aqi-text">--</span>
+          <div class="aqi-header">
+            <span class="aqi-label">Air Quality Index</span>
+            <div class="aqi-value-display">
+              <span id="aqi-value" class="aqi-number">--</span>
+              <span id="aqi-text" class="aqi-status">--</span>
+            </div>
+          </div>
+          <div class="aqi-slider-container">
+            <div id="aqi-slider" class="aqi-slider">
+              <div id="aqi-fill" class="aqi-fill"></div>
+            </div>
+            <div class="aqi-scale">
+              <span>Good</span>
+              <span>Fair</span>
+              <span>Moderate</span>
+              <span>Poor</span>
+              <span>Very Poor</span>
+            </div>
           </div>
         </div>
       </section>

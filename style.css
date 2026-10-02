@@ -359,9 +359,13 @@ body {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--card-border);
+}
+
+.aqi-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 12px;
 }
 
 .aqi-label {
@@ -372,44 +376,100 @@ body {
   font-weight: 600;
 }
 
-.aqi-badge {
+.aqi-value-display {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 600;
+}
+
+.aqi-number {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.aqi-status {
   font-size: 0.9rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
   transition: all 0.3s ease;
 }
 
-.aqi-good {
+.aqi-slider-container {
+  margin-top: 12px;
+}
+
+.aqi-slider {
+  width: 100%;
+  height: 12px;
+  background: linear-gradient(
+    to right,
+    #22c55e 0%,
+    #22c55e 20%,
+    #facc15 20%,
+    #facc15 40%,
+    #fb923c 40%,
+    #fb923c 60%,
+    #ef4444 60%,
+    #ef4444 80%,
+    #991b1b 80%,
+    #991b1b 100%
+  );
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.aqi-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  border-right: 3px solid var(--text-primary);
+  transition: width 0.8s ease-out;
+}
+
+.aqi-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  padding: 0 2px;
+}
+
+.aqi-scale span {
+  text-align: center;
+  flex: 1;
+}
+
+/* AQI Status Colors */
+.aqi-status.aqi-good {
   background: rgba(34, 197, 94, 0.2);
-  border: 1px solid rgba(34, 197, 94, 0.5);
   color: #22c55e;
 }
 
-.aqi-fair {
+.aqi-status.aqi-fair {
   background: rgba(250, 204, 21, 0.2);
-  border: 1px solid rgba(250, 204, 21, 0.5);
   color: #facc15;
 }
 
-.aqi-moderate {
+.aqi-status.aqi-moderate {
   background: rgba(251, 146, 60, 0.2);
-  border: 1px solid rgba(251, 146, 60, 0.5);
   color: #fb923c;
 }
 
-.aqi-poor {
+.aqi-status.aqi-poor {
   background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.5);
   color: #ef4444;
 }
 
-.aqi-very-poor {
+.aqi-status.aqi-very-poor {
   background: rgba(153, 27, 27, 0.3);
-  border: 1px solid rgba(153, 27, 27, 0.6);
   color: #dc2626;
 }
 

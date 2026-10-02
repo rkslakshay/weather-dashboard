@@ -12,9 +12,9 @@ const clearHistoryBtn = document.getElementById('clear-history');
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = document.querySelector('.theme-icon');
 const aqiContainer = document.getElementById('aqi-container');
-const aqiBadge = document.getElementById('aqi-badge');
 const aqiValue = document.getElementById('aqi-value');
 const aqiText = document.getElementById('aqi-text');
+const aqiFill = document.getElementById('aqi-fill');
 
 // Current weather elements
 const cityName = document.getElementById('city-name');
@@ -374,11 +374,24 @@ async function fetchAQI(lat, lon) {
     const data = await response.json();
     const aqi = data.list[0].main.aqi; // 1-5 scale
 
+    // Update value and text
     aqiValue.textContent = aqi;
     aqiText.textContent = AQI_LABELS[aqi - 1];
 
-    // Remove old classes and add new one
-    aqiBadge.className = 'aqi-badge ' + AQI_CLASSES[aqi - 1];
+    // Update status badge color
+    aqiText.className = 'aqi-status ' + AQI_CLASSES[aqi - 1];
+
+    // Animate the slider fill
+    const fillPercentage = (aqi / 5) * 100;
+
+    // Reset animation
+    aqiFill.style.width = '0%';
+
+    // Trigger animation after a brief delay
+    setTimeout(() => {
+      aqiFill.style.width = fillPercentage + '%';
+    }, 100);
+
     aqiContainer.classList.remove('hidden');
   } catch (err) {
     console.error('AQI fetch failed:', err);
