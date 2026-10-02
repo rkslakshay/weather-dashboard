@@ -57,19 +57,24 @@ const ICON_MAP = {
   '02n': 'partly-cloudy-night',
   '03d': 'cloudy',
   '03n': 'cloudy',
-  '04d': 'overcast',
-  '04n': 'overcast',
-  '09d': 'rain',
-  '09n': 'rain',
-  '10d': 'partly-cloudy-day-rain',
-  '10n': 'partly-cloudy-night-rain',
-  '11d': 'thunderstorms',
-  '11n': 'thunderstorms',
+  '04d': 'overcast-day',
+  '04n': 'overcast-night',
+  '09d': 'drizzle',
+  '09n': 'drizzle',
+  '10d': 'rain',
+  '10n': 'rain',
+  '11d': 'thunderstorms-day',
+  '11n': 'thunderstorms-night',
   '13d': 'snow',
   '13n': 'snow',
-  '50d': 'mist',
-  '50n': 'mist'
+  '50d': 'fog-day',
+  '50n': 'fog-night'
 };
+
+function getAnimatedIconUrl(iconCode) {
+  const iconName = ICON_MAP[iconCode] || 'cloudy';
+  return `https://raw.githubusercontent.com/basmilius/weather-icons/dev/production/fill/svg/${iconName}.svg`;
+}
 
 // Step 2: Form submit event listener
 searchForm.addEventListener('submit', async (e) => {
@@ -147,8 +152,7 @@ function displayCurrentWeather(data) {
 
   // Use animated icon
   const iconCode = condition.icon;
-  const animatedIcon = ICON_MAP[iconCode] || 'cloudy';
-  weatherIcon.src = `https://cdn.jsdelivr.net/npm/weather-icons-animated@1.0.0/svg/${animatedIcon}.svg`;
+  weatherIcon.src = getAnimatedIconUrl(iconCode);
   weatherIcon.alt = condition.description;
 
   rawTempC = data.main.temp;
@@ -187,13 +191,12 @@ function displayForecast(data) {
     rawForecastTemps.push(reading.main.temp);
     const desc = reading.weather[0].description;
     const iconCode = reading.weather[0].icon;
-    const animatedIcon = ICON_MAP[iconCode] || 'cloudy';
 
     const card = document.createElement('div');
     card.className = 'forecast-card';
     card.innerHTML = `
       <span class="forecast-day">${dayName}</span>
-      <img src="https://cdn.jsdelivr.net/npm/weather-icons-animated@1.0.0/svg/${animatedIcon}.svg" alt="${desc}" />
+      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" />
       <span class="forecast-temp">${temp}°C</span>
       <span class="forecast-desc">${desc}</span>
     `;
@@ -215,13 +218,12 @@ function displayHourlyForecast(data) {
     });
     const temp = Math.round(reading.main.temp);
     const iconCode = reading.weather[0].icon;
-    const animatedIcon = ICON_MAP[iconCode] || 'cloudy';
 
     const card = document.createElement('div');
     card.className = 'hourly-card';
     card.innerHTML = `
       <span class="hourly-time">${time}</span>
-      <img src="https://cdn.jsdelivr.net/npm/weather-icons-animated@1.0.0/svg/${animatedIcon}.svg" alt="weather" />
+      <img src="${getAnimatedIconUrl(iconCode)}" alt="weather" />
       <span class="hourly-temp">${temp}°C</span>
     `;
     hourlyForecast.appendChild(card);
@@ -464,10 +466,10 @@ function loadTheme() {
   const savedTheme = localStorage.getItem('theme') || 'dark';
   if (savedTheme === 'light') {
     document.body.dataset.theme = 'light';
-    themeIcon.textContent = '🌙';
+    themeIcon.textContent = '●';
   } else {
     delete document.body.dataset.theme;
-    themeIcon.textContent = '☀️';
+    themeIcon.textContent = '◐';
   }
 }
 
@@ -476,11 +478,11 @@ themeToggle.addEventListener('click', () => {
 
   if (currentTheme === 'light') {
     document.body.dataset.theme = 'light';
-    themeIcon.textContent = '🌙';
+    themeIcon.textContent = '●';
     localStorage.setItem('theme', 'light');
   } else {
     delete document.body.dataset.theme;
-    themeIcon.textContent = '☀️';
+    themeIcon.textContent = '◐';
     localStorage.setItem('theme', 'dark');
   }
 });
