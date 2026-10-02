@@ -49,6 +49,28 @@ const MAX_HISTORY = 5;
 const AQI_LABELS = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
 const AQI_CLASSES = ['aqi-good', 'aqi-fair', 'aqi-moderate', 'aqi-poor', 'aqi-very-poor'];
 
+// Map OpenWeatherMap icon codes to animated icon names
+const ICON_MAP = {
+  '01d': 'clear-day',
+  '01n': 'clear-night',
+  '02d': 'partly-cloudy-day',
+  '02n': 'partly-cloudy-night',
+  '03d': 'cloudy',
+  '03n': 'cloudy',
+  '04d': 'overcast',
+  '04n': 'overcast',
+  '09d': 'rain',
+  '09n': 'rain',
+  '10d': 'partly-cloudy-day-rain',
+  '10n': 'partly-cloudy-night-rain',
+  '11d': 'thunderstorms',
+  '11n': 'thunderstorms',
+  '13d': 'snow',
+  '13n': 'snow',
+  '50d': 'mist',
+  '50n': 'mist'
+};
+
 // Step 2: Form submit event listener
 searchForm.addEventListener('submit', async (e) => {
   e.preventDefault(); // Prevents page reload
@@ -122,7 +144,11 @@ function displayCurrentWeather(data) {
 
   const condition = data.weather[0];
   weatherCondition.textContent = condition.description;
-  weatherIcon.src = `https://openweathermap.org/img/wn/${condition.icon}@2x.png`;
+
+  // Use animated icon
+  const iconCode = condition.icon;
+  const animatedIcon = ICON_MAP[iconCode] || 'cloudy';
+  weatherIcon.src = `https://cdn.jsdelivr.net/npm/weather-icons-animated@1.0.0/svg/${animatedIcon}.svg`;
   weatherIcon.alt = condition.description;
 
   rawTempC = data.main.temp;
@@ -160,13 +186,14 @@ function displayForecast(data) {
     const temp = Math.round(reading.main.temp);
     rawForecastTemps.push(reading.main.temp);
     const desc = reading.weather[0].description;
-    const icon = reading.weather[0].icon;
+    const iconCode = reading.weather[0].icon;
+    const animatedIcon = ICON_MAP[iconCode] || 'cloudy';
 
     const card = document.createElement('div');
     card.className = 'forecast-card';
     card.innerHTML = `
       <span class="forecast-day">${dayName}</span>
-      <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${desc}" />
+      <img src="https://cdn.jsdelivr.net/npm/weather-icons-animated@1.0.0/svg/${animatedIcon}.svg" alt="${desc}" />
       <span class="forecast-temp">${temp}°C</span>
       <span class="forecast-desc">${desc}</span>
     `;
@@ -187,13 +214,14 @@ function displayHourlyForecast(data) {
       hour12: true
     });
     const temp = Math.round(reading.main.temp);
-    const icon = reading.weather[0].icon;
+    const iconCode = reading.weather[0].icon;
+    const animatedIcon = ICON_MAP[iconCode] || 'cloudy';
 
     const card = document.createElement('div');
     card.className = 'hourly-card';
     card.innerHTML = `
       <span class="hourly-time">${time}</span>
-      <img src="https://openweathermap.org/img/wn/${icon}.png" alt="weather" />
+      <img src="https://cdn.jsdelivr.net/npm/weather-icons-animated@1.0.0/svg/${animatedIcon}.svg" alt="weather" />
       <span class="hourly-temp">${temp}°C</span>
     `;
     hourlyForecast.appendChild(card);
