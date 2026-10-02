@@ -9,6 +9,15 @@ const weatherContent = document.getElementById('weather-content');
 const searchHistory = document.getElementById('search-history');
 const historyChips = document.getElementById('history-chips');
 const clearHistoryBtn = document.getElementById('clear-history');
+const favoritesSection = document.getElementById('favorites-section');
+const favoritesChips = document.getElementById('favorites-chips');
+const favoriteBtn = document.getElementById('favorite-btn');
+const alertsBanner = document.getElementById('alerts-banner');
+const alertTitle = document.getElementById('alert-title');
+const alertDescription = document.getElementById('alert-description');
+const alertToggleBtn = document.getElementById('alert-toggle');
+const alertDetails = document.getElementById('alert-details');
+const alertFullText = document.getElementById('alert-full-text');
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = document.querySelector('.theme-icon');
 const aqiContainer = document.getElementById('aqi-container');
@@ -44,8 +53,10 @@ let isCelsius = true;
 let rawTempC = 0;
 let rawFeelsC = 0;
 let rawForecastTemps = [];
+let currentCity = '';
 
 const MAX_HISTORY = 5;
+const MAX_FAVORITES = 5;
 const AQI_LABELS = ['Good', 'Fair', 'Moderate', 'Poor', 'Very Poor'];
 const AQI_CLASSES = ['aqi-good', 'aqi-fair', 'aqi-moderate', 'aqi-poor', 'aqi-very-poor'];
 
@@ -171,6 +182,11 @@ function displayCurrentWeather(data) {
 
   // Fetch AQI using coordinates
   fetchAQI(data.coord.lat, data.coord.lon);
+
+  // Favorite button & Weather Alerts for current location
+  currentCity = data.name;
+  updateFavoriteBtnState(data.name);
+  fetchWeatherAlerts(data.coord.lat, data.coord.lon, data.weather[0].main);
 }
 
 // Step 5: Render 5-Day Forecast
@@ -461,6 +477,136 @@ function calculateUSAQI(pm25) {
   return pm25 > 500 ? 500 : Math.round(pm25);
 }
 
+// Favorite Cities Functions
+function getFavorites() {
+  return JSON.parse(localStorage.getItem('favoriteCities')) || [];
+}
+
+function loadFavorites() {
+  const favorites = getFavorites();
+  if (favorites.length > 0) {
+    favoritesSection.classList.remove('hidden');
+    renderFavorites(favorites);
+  } else {
+    favoritesSection.classList.add('hidden');
+    favoritesChips.innerHTML = '';
+  }
+}
+
+function renderFavorites(favorites) {
+  favoritesChips.innerHTML = '';
+  favorites.forEach((city) => {
+    const chip = document.createElement('button');
+    chip.className = 'favorite-chip';
+    chip.innerHTML = `<span>★ ${city}</span> <span class="remove-fav" title="Remove">×</span>`;
+
+    chip.querySelector('span').addEventListener('click', () => {
+      cityInput.value = city;
+      fetchWeatherData(city);
+    });
+
+    chip.querySelector('.remove-fav').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeFavorite(city);
+    });
+
+    favoritesChips.appendChild(chip);
+  });
+}
+
+function toggleFavorite() {
+  if (!currentCity) return;
+  let favorites = getFavorites();
+  const index = favorites.findIndex((c) => c.toLowerCase() === currentCity.toLowerCase());
+
+  if (index >= 0) {
+    favorites.splice(index, 1);
+  } else {
+    if (favorites.length >= MAX_FAVORITES) {
+      favorites.pop(); // keep within limit
+    }
+    favorites.unshift(currentCity);
+  }
+
+  localStorage.setItem('favoriteCities', JSON.stringify(favorites));
+  loadFavorites();
+  updateFavoriteBtnState(currentCity);
+}
+
+function removeFavorite(city) {
+  let favorites = getFavorites();
+  favorites = favorites.filter((c) => c.toLowerCase() !== city.toLowerCase());
+  localStorage.setItem('favoriteCities', JSON.stringify(favorites));
+  loadFavorites();
+  if (currentCity.toLowerCase() === city.toLowerCase()) {
+    updateFavoriteBtnState(currentCity);
+  }
+}
+
+function updateFavoriteBtnState(city) {
+  favoriteBtn.classList.remove('hidden');
+  const favorites = getFavorites();
+  const isFav = favorites.some((c) => c.toLowerCase() === city.toLowerCase());
+  if (isFav) {
+    favoriteBtn.textContent = '★';
+    favoriteBtn.classList.add('favorited');
+    favoriteBtn.title = 'Remove from favorites';
+  } else {
+    favoriteBtn.textContent = '☆';
+    favoriteBtn.classList.remove('favorited');
+    favoriteBtn.title = 'Add to favorites';
+  }
+}
+
+favoriteBtn.addEventListener('click', toggleFavorite);
+
+// Weather Alerts Function
+async function fetchWeatherAlerts(lat, lon, mainCondition) {
+  alertsBanner.classList.add('hidden');
+  alertDetails.classList.add('hidden');
+  alertToggleBtn.textContent = 'Details';
+
+  try {
+    // Check for severe conditions directly or via alert data
+    const alertsUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=current,minutely,hourly,daily&appid=${API_KEY}`;
+    const response = await fetch(alertsUrl);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.alerts && data.alerts.length > 0) {
+        const alert = data.alerts[0];
+        alertTitle.textContent = alert.event || 'Severe Weather Warning';
+        alertDescription.textContent = alert.description.substring(0, 95) + '...';
+        alertFullText.innerHTML = `
+          <strong>${alert.event}</strong>
+          <p style="margin-top: 6px;">${alert.description}</p>
+          <small style="color: var(--text-secondary); display: block; margin-top: 8px;">Source: ${alert.sender_name || 'Meteorological Agency'}</small>
+        `;
+        alertsBanner.classList.remove('hidden');
+        return;
+      }
+    }
+
+    // Fallback: Generate advisory for severe real-time weather conditions (e.g. Thunderstorm, Extreme Rain, Snow)
+    if (['Thunderstorm', 'Tornado', 'Squall'].includes(mainCondition)) {
+      alertTitle.textContent = `${mainCondition} Advisory`;
+      alertDescription.textContent = `Severe ${mainCondition.toLowerCase()} conditions active. Please exercise caution outdoors.`;
+      alertFullText.innerHTML = `
+        <strong>${mainCondition} Warning Active</strong>
+        <p style="margin-top: 6px;">Adverse weather patterns detected in this region. Limit outdoor exposure and monitor local bulletins.</p>
+      `;
+      alertsBanner.classList.remove('hidden');
+    }
+  } catch (err) {
+    console.warn('Weather alerts fetch note:', err.message);
+  }
+}
+
+alertToggleBtn.addEventListener('click', () => {
+  alertDetails.classList.toggle('hidden');
+  alertToggleBtn.textContent = alertDetails.classList.contains('hidden') ? 'Details' : 'Hide';
+});
+
 // Theme Toggle
 function loadTheme() {
   const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -489,8 +635,9 @@ themeToggle.addEventListener('click', () => {
 
 loadTheme();
 
-// Load history on page load
+// Load history and favorites on page load
 loadSearchHistory();
+loadFavorites();
 
 // Initial fetch on page load (Default city)
 fetchWeatherData('Delhi');

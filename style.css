@@ -148,9 +148,134 @@ body {
   transform: scale(0.95);
 }
 
-/* Search History */
-.search-history {
+/* Favorites Section */
+.favorites-section {
   margin-bottom: 20px;
+}
+
+.favorites-header {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.favorites-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.favorite-chip {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.favorite-chip:hover {
+  background: rgba(251, 191, 36, 0.25);
+  transform: translateY(-2px);
+}
+
+.favorite-chip .remove-fav {
+  font-weight: bold;
+  opacity: 0.7;
+}
+
+.favorite-chip .remove-fav:hover {
+  opacity: 1;
+}
+
+.favorite-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  margin-left: 8px;
+  vertical-align: middle;
+  transition: transform 0.2s, color 0.2s;
+  color: var(--text-secondary);
+}
+
+.favorite-btn:hover {
+  transform: scale(1.2);
+}
+
+.favorite-btn.favorited {
+  color: #fbbf24;
+}
+
+/* Weather Alerts */
+.alerts-banner {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.25));
+  border: 1px solid #ef4444;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: alertPulse 2s ease-in-out infinite;
+}
+
+@keyframes alertPulse {
+  0%, 100% { border-color: #ef4444; }
+  50% { border-color: #f87171; }
+}
+
+.alert-icon {
+  font-size: 1.6rem;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-content strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #fca5a5;
+  margin-bottom: 2px;
+}
+
+.alert-content p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.alert-toggle-btn {
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.alert-toggle-btn:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.alert-details {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-primary);
 }
 
 .history-header {

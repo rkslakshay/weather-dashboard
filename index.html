@@ -17,7 +17,7 @@
       <h1>
         Weather Dashboard
         <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
-          <span class="theme-icon">☀️</span>
+          <span class="theme-icon">◐</span>
         </button>
       </h1>
       <form id="search-form" class="search-form">
@@ -40,7 +40,28 @@
         </div>
         <div id="history-chips" class="history-chips"></div>
       </div>
+
+      <!-- Favorite Cities -->
+      <div id="favorites-section" class="favorites-section hidden">
+        <div class="favorites-header">
+          <span>★ Favorite Cities</span>
+        </div>
+        <div id="favorites-chips" class="favorites-chips"></div>
+      </div>
     </header>
+
+    <!-- Weather Alerts Banner -->
+    <div id="alerts-banner" class="alerts-banner hidden">
+      <div class="alert-icon">⚠</div>
+      <div class="alert-content">
+        <strong id="alert-title">Weather Alert</strong>
+        <p id="alert-description">--</p>
+      </div>
+      <button id="alert-toggle" class="alert-toggle-btn">Details</button>
+    </div>
+    <div id="alert-details" class="alert-details hidden">
+      <div id="alert-full-text"></div>
+    </div>
 
     <!-- Error Banner (Hidden by default) -->
     <div id="error-message" class="error-banner hidden">
@@ -59,7 +80,10 @@
       <section class="current-weather-card">
         <div class="current-header">
           <div>
-            <h2 id="city-name">--</h2>
+            <h2 id="city-name">
+              --
+              <button id="favorite-btn" class="favorite-btn hidden" title="Add to favorites">☆</button>
+            </h2>
             <p id="current-date" class="date-text">--</p>
           </div>
           <div class="condition-badge">
