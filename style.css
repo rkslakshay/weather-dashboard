@@ -401,6 +401,12 @@ body {
   padding-bottom: 16px;
 }
 
+.city-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .current-header h2 {
   font-size: 1.6rem;
   font-weight: 700;

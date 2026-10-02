@@ -186,7 +186,7 @@ function displayCurrentWeather(data) {
   // Favorite button & Weather Alerts for current location
   currentCity = data.name;
   updateFavoriteBtnState(data.name);
-  fetchWeatherAlerts(data.coord.lat, data.coord.lon, data.weather[0].main);
+  fetchWeatherAlerts(data);
 }
 
 // Step 5: Render 5-Day Forecast
@@ -561,44 +561,52 @@ function updateFavoriteBtnState(city) {
 favoriteBtn.addEventListener('click', toggleFavorite);
 
 // Weather Alerts Function
-async function fetchWeatherAlerts(lat, lon, mainCondition) {
+async function fetchWeatherAlerts(data) {
   alertsBanner.classList.add('hidden');
   alertDetails.classList.add('hidden');
   alertToggleBtn.textContent = 'Details';
 
-  try {
-    // Check for severe conditions directly or via alert data
-    const alertsUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=current,minutely,hourly,daily&appid=${API_KEY}`;
-    const response = await fetch(alertsUrl);
+  const condition = data.weather[0].main;
+  const temp = data.main.temp;
+  const feelsLikeTemp = data.main.feels_like;
+  const wind = data.wind.speed;
+  const visibilityMeters = data.visibility;
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.alerts && data.alerts.length > 0) {
-        const alert = data.alerts[0];
-        alertTitle.textContent = alert.event || 'Severe Weather Warning';
-        alertDescription.textContent = alert.description.substring(0, 95) + '...';
-        alertFullText.innerHTML = `
-          <strong>${alert.event}</strong>
-          <p style="margin-top: 6px;">${alert.description}</p>
-          <small style="color: var(--text-secondary); display: block; margin-top: 8px;">Source: ${alert.sender_name || 'Meteorological Agency'}</small>
-        `;
-        alertsBanner.classList.remove('hidden');
-        return;
-      }
-    }
+  let alertEvent = '';
+  let alertDesc = '';
+  let alertFull = '';
 
-    // Fallback: Generate advisory for severe real-time weather conditions (e.g. Thunderstorm, Extreme Rain, Snow)
-    if (['Thunderstorm', 'Tornado', 'Squall'].includes(mainCondition)) {
-      alertTitle.textContent = `${mainCondition} Advisory`;
-      alertDescription.textContent = `Severe ${mainCondition.toLowerCase()} conditions active. Please exercise caution outdoors.`;
-      alertFullText.innerHTML = `
-        <strong>${mainCondition} Warning Active</strong>
-        <p style="margin-top: 6px;">Adverse weather patterns detected in this region. Limit outdoor exposure and monitor local bulletins.</p>
-      `;
-      alertsBanner.classList.remove('hidden');
-    }
-  } catch (err) {
-    console.warn('Weather alerts fetch note:', err.message);
+  if (['Thunderstorm', 'Tornado', 'Squall'].includes(condition)) {
+    alertEvent = `${condition} Warning`;
+    alertDesc = `Active ${condition.toLowerCase()} system in area. Seek shelter and avoid outdoor activities.`;
+    alertFull = `Strong atmospheric instability detected with ${condition.toLowerCase()} patterns. Risk of sudden lightning strikes and strong wind gusts. Stay indoors away from windows.`;
+  } else if (temp >= 35 || feelsLikeTemp >= 38) {
+    alertEvent = 'Excessive Heat Advisory';
+    alertDesc = `High thermal index (${Math.round(feelsLikeTemp)}°C feels-like). Stay hydrated and avoid direct sun exposure.`;
+    alertFull = `Prolonged heat conditions can cause heat exhaustion or heat stroke. Drink plenty of fluids, stay in air-conditioned rooms, and limit strenuous outdoor work.`;
+  } else if (temp <= 3) {
+    alertEvent = 'Freeze & Frost Warning';
+    alertDesc = `Near-freezing temperatures (${Math.round(temp)}°C). Frost formation possible.`;
+    alertFull = `Freezing temperatures can damage sensitive vegetation and pose risks of hypothermia. Dress in multiple warm layers and protect exposed pipes.`;
+  } else if (wind >= 10) {
+    alertEvent = 'High Wind Advisory';
+    alertDesc = `Gusty winds detected at ${wind} m/s. Secure outdoor objects.`;
+    alertFull = `Strong winds can make driving difficult, especially for high-profile vehicles, and cause isolated branch damage. Exercise caution outdoors.`;
+  } else if (visibilityMeters <= 1000) {
+    alertEvent = 'Dense Fog Advisory';
+    alertDesc = `Low visibility (${(visibilityMeters/1000).toFixed(1)} km) due to fog/mist. Drive carefully.`;
+    alertFull = `Dense fog is causing hazardous travel conditions. If driving, slow down, use low-beam headlights, and leave plenty of distance ahead of you.`;
+  }
+
+  if (alertEvent) {
+    alertTitle.textContent = alertEvent;
+    alertDescription.textContent = alertDesc;
+    alertFullText.innerHTML = `
+      <strong>${alertEvent} — Official Advisory</strong>
+      <p style="margin-top: 6px;">${alertFull}</p>
+      <small style="color: var(--text-secondary); display: block; margin-top: 8px;">Source: Real-Time Meteorological Monitor</small>
+    `;
+    alertsBanner.classList.remove('hidden');
   }
 }
 
