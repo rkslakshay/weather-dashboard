@@ -12,6 +12,7 @@ const clearHistoryBtn = document.getElementById('clear-history');
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = document.querySelector('.theme-icon');
 const aqiContainer = document.getElementById('aqi-container');
+const aqiExact = document.getElementById('aqi-exact');
 const aqiValue = document.getElementById('aqi-value');
 const aqiText = document.getElementById('aqi-text');
 const aqiFill = document.getElementById('aqi-fill');
@@ -374,7 +375,16 @@ async function fetchAQI(lat, lon) {
     const data = await response.json();
     const aqi = data.list[0].main.aqi; // 1-5 scale
 
-    // Update value and text
+    // Get detailed AQI components
+    const components = data.list[0].components;
+    // Calculate US EPA AQI from PM2.5 (most common standard)
+    const pm25 = components.pm2_5;
+    const exactAQI = calculateUSAQI(pm25);
+
+    // Update exact AQI value
+    aqiExact.textContent = exactAQI;
+
+    // Update category (1-5 scale)
     aqiValue.textContent = aqi;
     aqiText.textContent = AQI_LABELS[aqi - 1];
 
@@ -397,6 +407,28 @@ async function fetchAQI(lat, lon) {
     console.error('AQI fetch failed:', err);
     aqiContainer.classList.add('hidden');
   }
+}
+
+// Calculate US EPA AQI from PM2.5
+function calculateUSAQI(pm25) {
+  // US EPA AQI breakpoints for PM2.5
+  const breakpoints = [
+    { cLow: 0, cHigh: 12, iLow: 0, iHigh: 50 },
+    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },
+    { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },
+    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 500, iLow: 301, iHigh: 500 }
+  ];
+
+  for (let bp of breakpoints) {
+    if (pm25 >= bp.cLow && pm25 <= bp.cHigh) {
+      const aqi = ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (pm25 - bp.cLow) + bp.iLow;
+      return Math.round(aqi);
+    }
+  }
+
+  return pm25 > 500 ? 500 : Math.round(pm25);
 }
 
 // Theme Toggle

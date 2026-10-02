@@ -378,21 +378,47 @@ body {
 
 .aqi-value-display {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 16px;
 }
 
-.aqi-number {
-  font-size: 1.8rem;
+.aqi-main-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.aqi-exact {
+  font-size: 2.2rem;
   font-weight: 700;
   color: var(--accent-color);
 }
 
-.aqi-status {
-  font-size: 0.9rem;
+.aqi-unit {
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.aqi-category {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.aqi-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.aqi-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
   transition: all 0.3s ease;
 }
 
