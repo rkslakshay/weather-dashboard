@@ -40,6 +40,13 @@ const visibility = document.getElementById('visibility');
 const forecastCards = document.getElementById('forecast-cards');
 const hourlyForecast = document.getElementById('hourly-forecast');
 
+const autocompleteList = document.getElementById('autocomplete-list');
+const localTime = document.getElementById('local-time');
+const sunMarker = document.getElementById('sun-marker');
+const sunriseTime = document.getElementById('sunrise-time');
+const sunsetTime = document.getElementById('sunset-time');
+const daylightDuration = document.getElementById('daylight-duration');
+
 // Temperature toggle elements
 const unitToggle = document.getElementById('unit-toggle');
 const unitLabel = document.getElementById('unit-label');
@@ -49,11 +56,15 @@ const feelsUnit = document.getElementById('feels-unit');
 const API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : '5ff7e87116093c9b53407f7a546326c9';
 
 // State variables for temperature toggle
-let isCelsius = true;
+let isCelsius = localStorage.getItem('weatherTempUnit') !== 'F';
 let rawTempC = 0;
 let rawFeelsC = 0;
 let rawForecastTemps = [];
+let rawHourlyTemps = [];
 let currentCity = '';
+let cityTimezoneOffset = 0;
+let clockTimer = null;
+let autocompleteDebounceTimer = null;
 
 const MAX_HISTORY = 5;
 const MAX_FAVORITES = 5;
@@ -152,11 +163,6 @@ async function fetchWeatherData(city) {
 // Step 4: Render Current Weather to the DOM
 function displayCurrentWeather(data) {
   cityName.textContent = `${data.name}, ${data.sys.country}`;
-  currentDate.textContent = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric'
-  });
 
   const condition = data.weather[0];
   weatherCondition.textContent = condition.description;
@@ -168,17 +174,21 @@ function displayCurrentWeather(data) {
 
   rawTempC = data.main.temp;
   rawFeelsC = data.main.feels_like;
-  isCelsius = true;
-  unitLabel.textContent = '°C';
-  feelsUnit.textContent = '°C';
-  unitToggle.textContent = 'Switch to °F';
-  temperature.textContent = Math.round(rawTempC);
-  feelsLike.textContent = Math.round(rawFeelsC);
 
   humidity.textContent = `${data.main.humidity}%`;
   windSpeed.textContent = `${data.wind.speed} m/s`;
   pressure.textContent = `${data.main.pressure} hPa`;
   visibility.textContent = `${(data.visibility / 1000).toFixed(1)} km`;
+
+  // Start live city local time clock
+  cityTimezoneOffset = data.timezone;
+  startLocalClock(data.timezone);
+
+  // Render Sun Arc Timeline
+  displaySunTimeline(data.sys.sunrise, data.sys.sunset, data.timezone);
+
+  // Update All Temperature values in currently selected unit
+  updateAllTemperatureDisplays();
 
   // Fetch AQI using coordinates
   fetchAQI(data.coord.lat, data.coord.lon);
@@ -203,8 +213,8 @@ function displayForecast(data) {
   dailyReadings.forEach((reading) => {
     const dateObj = new Date(reading.dt * 1000);
     const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-    const temp = Math.round(reading.main.temp);
-    rawForecastTemps.push(reading.main.temp);
+    const tempC = reading.main.temp;
+    rawForecastTemps.push(tempC);
     const desc = reading.weather[0].description;
     const iconCode = reading.weather[0].icon;
 
@@ -213,7 +223,7 @@ function displayForecast(data) {
     card.innerHTML = `
       <span class="forecast-day">${dayName}</span>
       <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" />
-      <span class="forecast-temp">${temp}°C</span>
+      <span class="forecast-temp">${formatTempNumber(tempC)}${isCelsius ? '°C' : '°F'}</span>
       <span class="forecast-desc">${desc}</span>
     `;
     forecastCards.appendChild(card);
@@ -223,16 +233,18 @@ function displayForecast(data) {
 // Step 5B: Render Hourly Forecast (Next 12 hours)
 function displayHourlyForecast(data) {
   hourlyForecast.innerHTML = '';
+  rawHourlyTemps = [];
 
   // Take first 4 entries (each is 3 hours apart = 12 hours total)
   const hourlyData = data.list.slice(0, 4);
 
   hourlyData.forEach((reading) => {
-    const time = new Date(reading.dt * 1000).toLocaleTimeString('en-US', {
+    const time = new Date((reading.dt + (cityTimezoneOffset || 0) + (new Date().getTimezoneOffset() * 60)) * 1000).toLocaleTimeString('en-US', {
       hour: 'numeric',
       hour12: true
     });
-    const temp = Math.round(reading.main.temp);
+    const tempC = reading.main.temp;
+    rawHourlyTemps.push(tempC);
     const iconCode = reading.weather[0].icon;
 
     const card = document.createElement('div');
@@ -240,7 +252,7 @@ function displayHourlyForecast(data) {
     card.innerHTML = `
       <span class="hourly-time">${time}</span>
       <img src="${getAnimatedIconUrl(iconCode)}" alt="weather" />
-      <span class="hourly-temp">${temp}°C</span>
+      <span class="hourly-temp">${formatTempNumber(tempC)}${isCelsius ? '°C' : '°F'}</span>
     `;
     hourlyForecast.appendChild(card);
   });
@@ -330,35 +342,172 @@ geoBtn.addEventListener('click', () => {
   );
 });
 
-// Temperature Unit Toggle
-unitToggle.addEventListener('click', () => {
-  isCelsius = !isCelsius;
+// Temperature Formatting & Universal Conversion
+function formatTempNumber(celsiusVal) {
+  if (celsiusVal === undefined || isNaN(celsiusVal)) return '--';
+  return isCelsius ? Math.round(celsiusVal) : Math.round((celsiusVal * 9) / 5 + 32);
+}
 
-  if (isCelsius) {
-    temperature.textContent = Math.round(rawTempC);
-    feelsLike.textContent = Math.round(rawFeelsC);
-    unitLabel.textContent = '°C';
-    feelsUnit.textContent = '°C';
-    unitToggle.textContent = 'Switch to °F';
-  } else {
-    temperature.textContent = Math.round((rawTempC * 9/5) + 32);
-    feelsLike.textContent = Math.round((rawFeelsC * 9/5) + 32);
-    unitLabel.textContent = '°F';
-    feelsUnit.textContent = '°F';
-    unitToggle.textContent = 'Switch to °C';
-  }
+function updateAllTemperatureDisplays() {
+  const currentUnit = isCelsius ? '°C' : '°F';
+  unitLabel.textContent = currentUnit;
+  feelsUnit.textContent = currentUnit;
+  unitToggle.textContent = isCelsius ? 'Switch to °F' : 'Switch to °C';
 
-  // Update forecast cards
+  temperature.textContent = formatTempNumber(rawTempC);
+  feelsLike.textContent = formatTempNumber(rawFeelsC);
+
+  // Update 5-Day Forecast Card Temps
   const forecastTempElements = document.querySelectorAll('.forecast-temp');
   forecastTempElements.forEach((el, index) => {
     if (rawForecastTemps[index] !== undefined) {
-      const temp = isCelsius
-        ? Math.round(rawForecastTemps[index])
-        : Math.round((rawForecastTemps[index] * 9/5) + 32);
-      el.textContent = `${temp}${isCelsius ? '°C' : '°F'}`;
+      el.textContent = `${formatTempNumber(rawForecastTemps[index])}${currentUnit}`;
     }
   });
+
+  // Update Hourly Forecast Card Temps
+  const hourlyTempElements = document.querySelectorAll('.hourly-temp');
+  hourlyTempElements.forEach((el, index) => {
+    if (rawHourlyTemps[index] !== undefined) {
+      el.textContent = `${formatTempNumber(rawHourlyTemps[index])}${currentUnit}`;
+    }
+  });
+}
+
+// Temperature Unit Toggle Listener
+unitToggle.addEventListener('click', () => {
+  isCelsius = !isCelsius;
+  localStorage.setItem('weatherTempUnit', isCelsius ? 'C' : 'F');
+  updateAllTemperatureDisplays();
 });
+
+// Feature #14: Real-Time Local Timezone Clock
+function getCityDateObj(offsetInSeconds) {
+  const utcNowMs = Date.now() + new Date().getTimezoneOffset() * 60000;
+  return new Date(utcNowMs + (offsetInSeconds || 0) * 1000);
+}
+
+function startLocalClock(offsetInSeconds) {
+  if (clockTimer) clearInterval(clockTimer);
+
+  function updateClockDisplay() {
+    const cityDate = getCityDateObj(offsetInSeconds);
+    currentDate.textContent = cityDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric'
+    });
+    localTime.textContent = `🕒 ${cityDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })}`;
+  }
+
+  updateClockDisplay();
+  clockTimer = setInterval(updateClockDisplay, 1000);
+}
+
+// Feature #4: Sunrise & Sunset Position Arc
+function displaySunTimeline(sunriseUnix, sunsetUnix, offsetInSeconds) {
+  if (!sunriseUnix || !sunsetUnix) return;
+
+  const sunriseDate = new Date((sunriseUnix + (offsetInSeconds || 0) + new Date().getTimezoneOffset() * 60) * 1000);
+  const sunsetDate = new Date((sunsetUnix + (offsetInSeconds || 0) + new Date().getTimezoneOffset() * 60) * 1000);
+
+  sunriseTime.textContent = sunriseDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  sunsetTime.textContent = sunsetDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  const totalSecs = sunsetUnix - sunriseUnix;
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  daylightDuration.textContent = `${hours}h ${mins}m daylight`;
+
+  // Calculate sun position on the arc (Ellipse center: 150, 95. Rx: 120, Ry: 70)
+  const nowUnix = Math.floor(Date.now() / 1000);
+  let progress = (nowUnix - sunriseUnix) / (sunsetUnix - sunriseUnix);
+
+  if (progress < 0) progress = 0;
+  if (progress > 1) progress = 1;
+
+  // Arc math: from left (x=30, y=95) to peak (x=150, y=25) to right (x=270, y=95)
+  const angle = Math.PI * (1 - progress); // PI (left) down to 0 (right)
+  const cx = 150 + 120 * Math.cos(angle);
+  const cy = 95 - 70 * Math.sin(angle);
+
+  sunMarker.setAttribute('cx', cx.toFixed(1));
+  sunMarker.setAttribute('cy', cy.toFixed(1));
+
+  // Style marker depending on day or night
+  if (nowUnix >= sunriseUnix && nowUnix <= sunsetUnix) {
+    sunMarker.setAttribute('fill', '#fbbf24');
+    sunMarker.style.filter = 'drop-shadow(0 0 8px #f59e0b)';
+  } else {
+    sunMarker.setAttribute('fill', '#94a3b8');
+    sunMarker.style.filter = 'drop-shadow(0 0 4px rgba(255,255,255,0.3))';
+  }
+}
+
+// City Search Autocomplete Dropdown
+function setupCityAutocomplete() {
+  cityInput.addEventListener('input', () => {
+    const query = cityInput.value.trim();
+    if (autocompleteDebounceTimer) clearTimeout(autocompleteDebounceTimer);
+
+    if (query.length < 2) {
+      autocompleteList.classList.add('hidden');
+      autocompleteList.innerHTML = '';
+      return;
+    }
+
+    autocompleteDebounceTimer = setTimeout(async () => {
+      try {
+        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=${API_KEY}`;
+        const res = await fetch(geoUrl);
+        if (!res.ok) return;
+        const matches = await res.json();
+
+        if (matches && matches.length > 0) {
+          autocompleteList.innerHTML = '';
+          matches.forEach((item) => {
+            const row = document.createElement('div');
+            row.className = 'autocomplete-item';
+            const stateStr = item.state ? `, ${item.state}` : '';
+            row.innerHTML = `
+              <span class="city-name-part">${item.name}${stateStr}</span>
+              <span class="country-badge">${item.country}</span>
+            `;
+            row.addEventListener('click', () => {
+              cityInput.value = `${item.name}, ${item.country}`;
+              autocompleteList.classList.add('hidden');
+              fetchWeatherData(cityInput.value);
+            });
+            autocompleteList.appendChild(row);
+          });
+          autocompleteList.classList.remove('hidden');
+        } else {
+          autocompleteList.classList.add('hidden');
+        }
+      } catch (err) {
+        console.warn('Autocomplete fetch note:', err.message);
+      }
+    }, 250);
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!cityInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+      autocompleteList.classList.add('hidden');
+    }
+  });
+
+  // Close on Escape key
+  cityInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      autocompleteList.classList.add('hidden');
+    }
+  });
+}
 
 // Search History Functions
 function loadSearchHistory() {
@@ -646,6 +795,7 @@ loadTheme();
 // Load history and favorites on page load
 loadSearchHistory();
 loadFavorites();
+setupCityAutocomplete();
 
 // Initial fetch on page load (Default city)
 fetchWeatherData('Delhi');

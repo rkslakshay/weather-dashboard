@@ -21,13 +21,16 @@
         </button>
       </h1>
       <form id="search-form" class="search-form">
-        <input
-          type="text"
-          id="city-input"
-          placeholder="Search for a city (e.g., Tokyo, London, Delhi)..."
-          autocomplete="off"
-          required
-        />
+        <div class="search-input-wrapper">
+          <input
+            type="text"
+            id="city-input"
+            placeholder="Search for a city (e.g., Tokyo, London, Delhi)..."
+            autocomplete="off"
+            required
+          />
+          <div id="autocomplete-list" class="autocomplete-dropdown hidden"></div>
+        </div>
         <button type="submit" id="search-btn">Search</button>
         <button type="button" id="geo-btn" title="Use current location">📍</button>
       </form>
@@ -84,7 +87,11 @@
               <h2 id="city-name">--</h2>
               <button id="favorite-btn" class="favorite-btn" title="Add to favorites">☆</button>
             </div>
-            <p id="current-date" class="date-text">--</p>
+            <div class="time-row">
+              <p id="current-date" class="date-text">--</p>
+              <span class="time-dot">•</span>
+              <p id="local-time" class="local-time-text" title="Local city time">🕒 --:--</p>
+            </div>
           </div>
           <div class="condition-badge">
             <img id="weather-icon" src="" alt="Weather Icon" />
@@ -118,6 +125,31 @@
           <div class="metric-box">
             <span class="metric-label">Visibility</span>
             <span id="visibility" class="metric-value">-- km</span>
+          </div>
+        </div>
+
+        <!-- Sunrise & Sunset Timeline Arc -->
+        <div id="sun-timeline" class="sun-timeline-container">
+          <div class="sun-header">
+            <span class="sun-label">Sun Position & Daylight</span>
+            <span id="daylight-duration" class="daylight-duration">--h --m daylight</span>
+          </div>
+          <div class="sun-arc-wrapper">
+            <svg class="sun-arc-svg" viewBox="0 0 300 110">
+              <path class="sun-arc-bg" d="M 30,95 A 120,70 0 0,1 270,95" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" stroke-dasharray="4,4" />
+              <line x1="15" y1="95" x2="285" y2="95" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+              <circle id="sun-marker" cx="30" cy="95" r="7" fill="#fbbf24" style="filter: drop-shadow(0 0 8px #f59e0b);" />
+            </svg>
+          </div>
+          <div class="sun-times-row">
+            <div class="sun-time-box">
+              <span class="sun-sublabel">Sunrise</span>
+              <span id="sunrise-time" class="sun-val">--:--</span>
+            </div>
+            <div class="sun-time-box" style="text-align: right;">
+              <span class="sun-sublabel">Sunset</span>
+              <span id="sunset-time" class="sun-val">--:--</span>
+            </div>
           </div>
         </div>
 
