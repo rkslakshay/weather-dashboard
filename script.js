@@ -9,6 +9,9 @@ const weatherContent = document.getElementById('weather-content');
 const unitToggle = document.getElementById('unit-toggle');
 const unitLabel = document.getElementById('unit-label');
 const feelsUnit = document.getElementById('feels-unit');
+const searchHistory = document.getElementById('search-history');
+const historyChips = document.getElementById('history-chips');
+const clearHistoryBtn = document.getElementById('clear-history');
 
 // Current weather elements
 const cityName = document.getElementById('city-name');
@@ -25,6 +28,7 @@ const forecastCards = document.getElementById('forecast-cards');
 
 // Read the API Key from config.js
 const API_KEY = CONFIG.API_KEY;
+const MAX_HISTORY = 5;
 let isCelsius = true;
 let rawTempC = 0;
 let rawFeelsC = 0;
@@ -82,6 +86,7 @@ async function fetchWeatherData(city) {
     // Update UI with the retrieved data
     displayCurrentWeather(currentData);
     displayForecast(forecastData);
+    saveToHistory(city);
     showContent();
   } catch (err) {
     showError(err.message);
@@ -195,6 +200,7 @@ async function fetchWeatherByCoords(lat, lon) {
 
     displayCurrentWeather(currentData);
     displayForecast(forecastData);
+    saveToHistory(currentData.name);
     showContent();
   } catch (err) {
     showError(err.message);
@@ -261,6 +267,57 @@ unitToggle.addEventListener('click', () => {
     }
   });
 });
+
+// Search History Functions
+function loadSearchHistory() {
+  const history = JSON.parse(localStorage.getItem('searchHistory')) || [];
+  if (history.length > 0) {
+    searchHistory.classList.remove('hidden');
+    renderHistoryChips(history);
+  }
+}
+
+function saveToHistory(city) {
+  let history = JSON.parse(localStorage.getItem('searchHistory')) || [];
+  
+  // Remove duplicate if exists
+  history = history.filter(c => c.toLowerCase() !== city.toLowerCase());
+  
+  // Add to front
+  history.unshift(city);
+  
+  // Keep only last 5
+  if (history.length > MAX_HISTORY) {
+    history = history.slice(0, MAX_HISTORY);
+  }
+  
+  localStorage.setItem('searchHistory', JSON.stringify(history));
+  searchHistory.classList.remove('hidden');
+  renderHistoryChips(history);
+}
+
+function renderHistoryChips(history) {
+  historyChips.innerHTML = '';
+  history.forEach(city => {
+    const chip = document.createElement('button');
+    chip.className = 'history-chip';
+    chip.textContent = city;
+    chip.addEventListener('click', () => {
+      cityInput.value = city;
+      fetchWeatherData(city);
+    });
+    historyChips.appendChild(chip);
+  });
+}
+
+clearHistoryBtn.addEventListener('click', () => {
+  localStorage.removeItem('searchHistory');
+  searchHistory.classList.add('hidden');
+  historyChips.innerHTML = '';
+});
+
+// Load history on page load
+loadSearchHistory();
 
 // Initial fetch on page load (Default city)
 fetchWeatherData('Delhi');

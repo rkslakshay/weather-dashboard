@@ -100,6 +100,57 @@ body {
   transform: scale(0.95);
 }
 
+/* Search History */
+.search-history {
+  margin-bottom: 20px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.clear-history-btn {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-history-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-chip {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.history-chip:hover {
+  background: rgba(56, 189, 248, 0.25);
+  transform: translateY(-2px);
+}
+
 /* Utility */
 .hidden {
   display: none !important;

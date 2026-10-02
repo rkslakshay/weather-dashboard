@@ -26,6 +26,14 @@
         <button type="submit" id="search-btn">Search</button>
         <button type="button" id="geo-btn" title="Use current location">📍</button>
       </form>
+      <!-- Search History -->
+      <div id="search-history" class="search-history hidden">
+        <div class="history-header">
+          <span>Recent Searches</span>
+          <button id="clear-history" class="clear-history-btn">Clear</button>
+        </div>
+        <div id="history-chips" class="history-chips"></div>
+      </div>
     </header>
 
     <!-- Error Banner (Hidden by default) -->
