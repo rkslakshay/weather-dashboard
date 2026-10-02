@@ -239,9 +239,13 @@ function displayHourlyForecast(data) {
   const hourlyData = data.list.slice(0, 4);
 
   hourlyData.forEach((reading) => {
-    const time = new Date((reading.dt + (cityTimezoneOffset || 0) + (new Date().getTimezoneOffset() * 60)) * 1000).toLocaleTimeString('en-US', {
+    // reading.dt is UTC Unix seconds. Adding the city's timezone offset (seconds)
+    // shifts it to city-local time. We then format with timeZone:'UTC' so the
+    // Date object's already-shifted value is read as-is — no machine offset applied.
+    const time = new Date((reading.dt + (cityTimezoneOffset || 0)) * 1000).toLocaleTimeString('en-US', {
       hour: 'numeric',
-      hour12: true
+      hour12: true,
+      timeZone: 'UTC'
     });
     const tempC = reading.main.temp;
     rawHourlyTemps.push(tempC);
@@ -412,11 +416,13 @@ function startLocalClock(offsetInSeconds) {
 function displaySunTimeline(sunriseUnix, sunsetUnix, offsetInSeconds) {
   if (!sunriseUnix || !sunsetUnix) return;
 
-  const sunriseDate = new Date((sunriseUnix + (offsetInSeconds || 0) + new Date().getTimezoneOffset() * 60) * 1000);
-  const sunsetDate = new Date((sunsetUnix + (offsetInSeconds || 0) + new Date().getTimezoneOffset() * 60) * 1000);
+  // Shift UTC Unix timestamps by the city's timezone offset, then read as UTC
+  // to get the correct city-local display time without machine offset interference.
+  const sunriseDate = new Date((sunriseUnix + (offsetInSeconds || 0)) * 1000);
+  const sunsetDate = new Date((sunsetUnix + (offsetInSeconds || 0)) * 1000);
 
-  sunriseTime.textContent = sunriseDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  sunsetTime.textContent = sunsetDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  sunriseTime.textContent = sunriseDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+  sunsetTime.textContent = sunsetDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' });
 
   const totalSecs = sunsetUnix - sunriseUnix;
   const hours = Math.floor(totalSecs / 3600);

@@ -22,10 +22,11 @@ A responsive weather dashboard built with vanilla JavaScript, HTML5, and CSS3. C
 ## How to Run Locally
 1. Clone this repository.
 2. Obtain a free API key from [OpenWeatherMap](https://openweathermap.org/).
-3. Create a `config.js` file in the root directory:
+3. Copy `config.example.js` to `config.js` and replace the placeholder with your key:
 ```javascript
    const CONFIG = {
      API_KEY: "YOUR_API_KEY_HERE"
    };
 ```
+   `config.js` is git-ignored and will not be committed.
 4. Open `index.html` using Live Server or open it directly in any browser.
