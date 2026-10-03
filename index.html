@@ -77,6 +77,9 @@
       <p>Fetching weather data...</p>
     </div>
 
+    <!-- Toast Notification (Round 5) -->
+    <div id="toast" class="toast hidden">Report copied to clipboard!</div>
+
     <!-- Weather Content (Shown when data is loaded) -->
     <main id="weather-content" class="weather-content hidden">
       <!-- Current Weather Card -->
@@ -86,6 +89,7 @@
             <div class="city-title-wrapper">
               <h2 id="city-name">--</h2>
               <button id="favorite-btn" class="favorite-btn" title="Add to favorites">☆</button>
+              <button id="share-btn" class="share-btn" title="Share weather report">📋 Share</button>
             </div>
             <div class="time-row">
               <p id="current-date" class="date-text">--</p>
@@ -227,6 +231,28 @@
         </div>
         <div class="chart-wrapper">
           <canvas id="temp-chart"></canvas>
+        </div>
+      </section>
+
+      <!-- Side-by-Side City Comparison (Round 5) -->
+      <section class="compare-section">
+        <div class="compare-header">
+          <h3>⚖️ Side-by-Side City Comparison</h3>
+          <p class="compare-subtext">Compare real-time weather against another city</p>
+        </div>
+        <form id="compare-form" class="compare-form">
+          <input
+            type="text"
+            id="compare-input"
+            placeholder="Enter second city to compare (e.g. London, Tokyo, Sydney)..."
+            required
+          />
+          <button type="submit" id="compare-btn">Compare</button>
+        </form>
+        <div id="compare-container" class="compare-container hidden">
+          <div id="compare-card-primary" class="compare-card"></div>
+          <div class="compare-badge-vs">VS</div>
+          <div id="compare-card-secondary" class="compare-card"></div>
         </div>
       </section>
     </main>

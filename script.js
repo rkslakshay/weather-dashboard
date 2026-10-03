@@ -59,6 +59,16 @@ const chartUnitBadge = document.getElementById('chart-unit-badge');
 let tempChart = null;
 let currentForecastData = null;
 
+// Round 5 Elements
+const shareBtn = document.getElementById('share-btn');
+const toast = document.getElementById('toast');
+const compareForm = document.getElementById('compare-form');
+const compareInput = document.getElementById('compare-input');
+const compareContainer = document.getElementById('compare-container');
+const compareCardPrimary = document.getElementById('compare-card-primary');
+const compareCardSecondary = document.getElementById('compare-card-secondary');
+let currentWeatherData = null;
+
 // Temperature toggle elements
 const unitToggle = document.getElementById('unit-toggle');
 const unitLabel = document.getElementById('unit-label');
@@ -1051,6 +1061,118 @@ loadTheme();
 loadSearchHistory();
 loadFavorites();
 setupCityAutocomplete();
+
+// Round 5 Setup: Share Report & City Comparison
+function showToast(msg) {
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.remove('hidden');
+  setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 2500);
+}
+
+function setupShareReport() {
+  if (!shareBtn) return;
+  shareBtn.addEventListener('click', async () => {
+    if (!currentWeatherData) return;
+    const name = `${currentWeatherData.name}, ${currentWeatherData.sys.country}`;
+    const temp = `${formatTempNumber(currentWeatherData.main.temp)}${isCelsius ? '°C' : '°F'}`;
+    const feels = `${formatTempNumber(currentWeatherData.main.feels_like)}${isCelsius ? '°C' : '°F'}`;
+    const condition = currentWeatherData.weather[0] ? currentWeatherData.weather[0].description : '';
+    const hum = `${currentWeatherData.main.humidity}%`;
+    const wind = `${currentWeatherData.wind.speed} m/s`;
+    const press = `${currentWeatherData.main.pressure} hPa`;
+    const advice = activityAdvice ? activityAdvice.textContent : '';
+
+    const summary = `🌤️ Weather Report for ${name}:\n• Temperature: ${temp} (Feels like ${feels})\n• Condition: ${condition}\n• Humidity: ${hum} | Wind: ${wind} | Pressure: ${press}\n• Smart Advice: ${advice}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Weather in ${name}`,
+          text: summary
+        });
+        return;
+      } catch (e) {
+        // Fallback to clipboard
+      }
+    }
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(summary).then(() => {
+        showToast('Weather report copied to clipboard! 📋');
+      }).catch(() => {
+        showToast('Unable to copy report');
+      });
+    }
+  });
+}
+
+function setupCityComparison() {
+  if (!compareForm) return;
+
+  function renderCompareCard(container, data) {
+    const unit = isCelsius ? '°C' : '°F';
+    const tempVal = formatTempNumber(data.main.temp);
+    const feelsVal = formatTempNumber(data.main.feels_like);
+    const iconCode = data.weather[0] ? data.weather[0].icon : '01d';
+    const desc = data.weather[0] ? data.weather[0].description : '';
+
+    container.innerHTML = `
+      <div class="compare-card-title">${data.name}, ${data.sys.country}</div>
+      <div class="compare-temp-row">
+        <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" style="width: 48px; height: 48px;" />
+        <div>
+          <span class="compare-temp-val">${tempVal}${unit}</span>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">Feels like ${feelsVal}${unit}</div>
+        </div>
+      </div>
+      <div style="font-size: 0.85rem; text-transform: capitalize; color: var(--accent-color); font-weight: 600;">${desc}</div>
+      <div class="compare-metric-row">
+        <span>Humidity</span>
+        <strong>${data.main.humidity}%</strong>
+      </div>
+      <div class="compare-metric-row">
+        <span>Wind Speed</span>
+        <strong>${data.wind.speed} m/s</strong>
+      </div>
+      <div class="compare-metric-row">
+        <span>Pressure</span>
+        <strong>${data.main.pressure} hPa</strong>
+      </div>
+    `;
+  }
+
+  compareForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const secondCity = compareInput.value.trim();
+    if (!secondCity) return;
+    if (!currentWeatherData) {
+      showToast('Search for a city first!');
+      return;
+    }
+
+    try {
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(secondCity)}&units=metric&appid=${API_KEY}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        showToast(`City "${secondCity}" not found`);
+        return;
+      }
+      const secondaryData = await res.json();
+
+      renderCompareCard(compareCardPrimary, currentWeatherData);
+      renderCompareCard(compareCardSecondary, secondaryData);
+      compareContainer.classList.remove('hidden');
+    } catch (err) {
+      showToast('Error comparing cities');
+    }
+  });
+}
+
+setupShareReport();
+setupCityComparison();
 
 // Initial fetch on page load (Default city)
 fetchWeatherData('Delhi');
