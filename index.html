@@ -117,15 +117,37 @@
           <div class="metric-box">
             <span class="metric-label">Wind Speed</span>
             <span id="wind-speed" class="metric-value">-- m/s</span>
+            <div class="wind-dir-wrapper">
+              <span id="wind-dir" class="metric-subvalue">--</span>
+              <span id="wind-arrow" class="wind-arrow">↑</span>
+            </div>
           </div>
           <div class="metric-box">
             <span class="metric-label">Pressure</span>
             <span id="pressure" class="metric-value">-- hPa</span>
+            <span id="pressure-trend" class="metric-subvalue">--</span>
           </div>
           <div class="metric-box">
             <span class="metric-label">Visibility</span>
             <span id="visibility" class="metric-value">-- km</span>
           </div>
+          <div class="metric-box">
+            <span class="metric-label">UV Index</span>
+            <span id="uv-index" class="metric-value">--</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Dew Point</span>
+            <span id="dew-point" class="metric-value">--°C</span>
+          </div>
+        </div>
+
+        <!-- Activity Advisor -->
+        <div id="activity-advisor-container" class="activity-advisor-card">
+          <div class="advisor-header">
+            <span class="advisor-icon">💡</span>
+            <span class="advisor-title">Smart Activity Advisor</span>
+          </div>
+          <p id="activity-advice" class="activity-advice">Loading recommendations...</p>
         </div>
 
         <!-- Sunrise & Sunset Timeline Arc -->

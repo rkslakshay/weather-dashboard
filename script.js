@@ -36,6 +36,13 @@ const feelsLike = document.getElementById('feels-like');
 const humidity = document.getElementById('humidity');
 const windSpeed = document.getElementById('wind-speed');
 const pressure = document.getElementById('pressure');
+// New metric elements
+const uvIndex = document.getElementById('uv-index');
+const dewPoint = document.getElementById('dew-point');
+const windDir = document.getElementById('wind-dir');
+const windArrow = document.getElementById('wind-arrow');
+const pressureTrend = document.getElementById('pressure-trend');
+const activityAdvice = document.getElementById('activity-advice');
 const visibility = document.getElementById('visibility');
 const forecastCards = document.getElementById('forecast-cards');
 const hourlyForecast = document.getElementById('hourly-forecast');
@@ -193,6 +200,9 @@ function displayCurrentWeather(data) {
   // Fetch AQI using coordinates
   fetchAQI(data.coord.lat, data.coord.lon);
 
+  // Fetch UV Index & Detailed Breakdown Metrics for Round 3
+  fetchUV(data.coord.lat, data.coord.lon, data);
+
   // Favorite button & Weather Alerts for current location
   currentCity = data.name;
   updateFavoriteBtnState(data.name);
@@ -262,7 +272,111 @@ function displayHourlyForecast(data) {
   });
 }
 
-// UI State Helper Functions
+// Round 3 Helper Functions: Detailed Breakdown & Smart Activity Advisor
+function getCardinalDirection(angle) {
+  if (angle === undefined || angle === null) return 'N/A';
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return directions[Math.round(angle / 45) % 8];
+}
+
+function updatePressureTrend(currentPressure) {
+  if (!pressureTrend) return;
+  const key = 'pressureHistory';
+  const history = JSON.parse(localStorage.getItem(key) || '[]');
+  history.push(currentPressure);
+  if (history.length > 3) history.shift();
+  localStorage.setItem(key, JSON.stringify(history));
+
+  if (history.length < 2) {
+    pressureTrend.textContent = 'Steady ↔';
+    return;
+  }
+
+  const diff = history[history.length - 1] - history[history.length - 2];
+  const trend = Math.abs(diff) < 1 ? 'Steady ↔' : diff > 0 ? 'Rising ↑' : 'Falling ↓';
+  pressureTrend.textContent = trend;
+}
+
+function getActivitySuggestion(data, uvi) {
+  const tempC = data.main.temp;
+  const feelsC = data.main.feels_like;
+  const mainWeather = data.weather[0] ? data.weather[0].main : '';
+  const isPrecip = data.weather.some(w => ['Rain', 'Drizzle', 'Thunderstorm', 'Snow'].includes(w.main));
+  const wind = data.wind ? data.wind.speed : 0; // m/s
+  const humidity = data.main.humidity;
+  const uv = uvi !== undefined && uvi !== null ? uvi : 0;
+
+  if (isPrecip) {
+    if (mainWeather === 'Thunderstorm') return '⚡ Heavy storm warning! Stay indoors and keep safe.';
+    if (mainWeather === 'Snow') return '❄️ Snowy conditions! Great for skiing or cozying up indoors with hot cocoa.';
+    return '🌧️ Rain expected – bring an umbrella or plan indoor activities.';
+  }
+
+  if (tempC >= 32) return '🌡️ Extreme heat! Stay hydrated and seek shade or air conditioning.';
+  if (uv >= 8) return '☀️ Very high UV index! Wear sunscreen, sunglasses, and a hat.';
+  if (wind >= 10) return '💨 High winds – caution recommended for outdoor sports or cycling.';
+  if (tempC <= 0) return '🥶 Freezing cold! Bundle up warmly in thick layers before heading out.';
+  if (tempC >= 18 && tempC <= 26 && wind < 6 && uv <= 5) return '🏃 Outstanding outdoor weather! Perfect for running, cycling, or a picnic.';
+  if (humidity >= 85) return '💧 High humidity – stay hydrated during outdoor workouts.';
+
+  return '🌤️ Pleasant weather overall – great time for a stroll or outdoor activities.';
+}
+
+function updateMetrics(data, uvi) {
+  // 1. UV Index
+  if (uvIndex) {
+    uvIndex.textContent = uvi !== undefined && uvi !== null ? uvi.toFixed(1) : '--';
+  }
+
+  // 2. Dew Point (Use data.main.dew_point if provided, else approximate using Magnus formula)
+  if (dewPoint) {
+    let dp = data.main ? data.main.dew_point : undefined;
+    if (dp === undefined && data.main && data.main.temp !== undefined && data.main.humidity !== undefined) {
+      const T = data.main.temp;
+      const RH = data.main.humidity;
+      dp = T - ((100 - RH) / 5);
+    }
+    dewPoint.textContent = dp !== undefined ? `${formatTempNumber(dp)}${isCelsius ? '°C' : '°F'}` : '--';
+  }
+
+  // 3. Wind Direction & Arrow Rotation
+  if (data.wind && data.wind.deg !== undefined) {
+    const deg = data.wind.deg;
+    const cardinal = getCardinalDirection(deg);
+    if (windDir) windDir.textContent = `${deg}° (${cardinal})`;
+    if (windArrow) {
+      windArrow.style.transform = `rotate(${deg}deg)`;
+    }
+  } else {
+    if (windDir) windDir.textContent = '--';
+  }
+
+  // 4. Pressure Trend
+  if (data.main && data.main.pressure !== undefined) {
+    updatePressureTrend(data.main.pressure);
+  }
+
+  // 5. Activity Advice
+  if (activityAdvice) {
+    activityAdvice.textContent = getActivitySuggestion(data, uvi);
+  }
+}
+
+async function fetchUV(lat, lon, currentWeatherData) {
+  let uvi = null;
+  try {
+    const uviUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${lat}&lon=${lon}&appid=${API_KEY}`;
+    const res = await fetch(uviUrl);
+    if (res.ok) {
+      const uviData = await res.json();
+      uvi = uviData.value;
+    }
+  } catch (e) {
+    console.warn('UV fetch note:', e.message);
+  }
+  updateMetrics(currentWeatherData, uvi);
+}
+
 function showLoading() {
   loadingSpinner.classList.remove('hidden');
   weatherContent.classList.add('hidden');

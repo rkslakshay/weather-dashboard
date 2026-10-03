@@ -559,7 +559,7 @@ body {
 /* Metrics Grid */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
@@ -573,6 +573,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  text-align: center;
 }
 
 .metric-label {
@@ -585,6 +586,62 @@ body {
 .metric-value {
   font-size: 1rem;
   font-weight: 600;
+}
+
+.metric-subvalue {
+  font-size: 0.75rem;
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.wind-dir-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.wind-arrow {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--accent-color);
+  transition: transform 0.4s ease;
+}
+
+/* Smart Activity Advisor Card */
+.activity-advisor-card {
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.advisor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.advisor-icon {
+  font-size: 1.1rem;
+}
+
+.advisor-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activity-advice {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.45;
 }
 
 /* Sun Position & Daylight Arc */
