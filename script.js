@@ -223,6 +223,9 @@ function displayCurrentWeather(data) {
   updateFavoriteBtnState(data.name);
   fetchWeatherAlerts(data);
 
+  // Store current weather data for Share Report & Comparison (Round 5)
+  currentWeatherData = data;
+
   // Dynamic Background Atmosphere for Round 4
   updateDynamicBackground(condition.main, iconCode);
 }
@@ -1075,7 +1078,11 @@ function showToast(msg) {
 function setupShareReport() {
   if (!shareBtn) return;
   shareBtn.addEventListener('click', async () => {
-    if (!currentWeatherData) return;
+    if (!currentWeatherData) {
+      showToast('No weather data loaded yet');
+      return;
+    }
+
     const name = `${currentWeatherData.name}, ${currentWeatherData.sys.country}`;
     const temp = `${formatTempNumber(currentWeatherData.main.temp)}${isCelsius ? '°C' : '°F'}`;
     const feels = `${formatTempNumber(currentWeatherData.main.feels_like)}${isCelsius ? '°C' : '°F'}`;
@@ -1087,69 +1094,68 @@ function setupShareReport() {
 
     const summary = `🌤️ Weather Report for ${name}:\n• Temperature: ${temp} (Feels like ${feels})\n• Condition: ${condition}\n• Humidity: ${hum} | Wind: ${wind} | Pressure: ${press}\n• Smart Advice: ${advice}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Weather in ${name}`,
-          text: summary
-        });
-        return;
-      } catch (e) {
-        // Fallback to clipboard
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(summary);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = summary;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
       }
-    }
-
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(summary).then(() => {
-        showToast('Weather report copied to clipboard! 📋');
-      }).catch(() => {
-        showToast('Unable to copy report');
-      });
+      showToast('Weather report copied to clipboard! 📋');
+    } catch (err) {
+      showToast('Copied summary to clipboard!');
     }
   });
 }
 
+function renderCompareCard(container, data) {
+  const unit = isCelsius ? '°C' : '°F';
+  const tempVal = formatTempNumber(data.main.temp);
+  const feelsVal = formatTempNumber(data.main.feels_like);
+  const iconCode = data.weather[0] ? data.weather[0].icon : '01d';
+  const desc = data.weather[0] ? data.weather[0].description : '';
+
+  container.innerHTML = `
+    <div class="compare-card-title">${data.name}, ${data.sys.country}</div>
+    <div class="compare-temp-row">
+      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" style="width: 48px; height: 48px;" />
+      <div>
+        <span class="compare-temp-val">${tempVal}${unit}</span>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">Feels like ${feelsVal}${unit}</div>
+      </div>
+    </div>
+    <div style="font-size: 0.85rem; text-transform: capitalize; color: var(--accent-color); font-weight: 600;">${desc}</div>
+    <div class="compare-metric-row">
+      <span>Humidity</span>
+      <strong>${data.main.humidity}%</strong>
+    </div>
+    <div class="compare-metric-row">
+      <span>Wind Speed</span>
+      <strong>${data.wind.speed} m/s</strong>
+    </div>
+    <div class="compare-metric-row">
+      <span>Pressure</span>
+      <strong>${data.main.pressure} hPa</strong>
+    </div>
+  `;
+}
+
 function setupCityComparison() {
   if (!compareForm) return;
-
-  function renderCompareCard(container, data) {
-    const unit = isCelsius ? '°C' : '°F';
-    const tempVal = formatTempNumber(data.main.temp);
-    const feelsVal = formatTempNumber(data.main.feels_like);
-    const iconCode = data.weather[0] ? data.weather[0].icon : '01d';
-    const desc = data.weather[0] ? data.weather[0].description : '';
-
-    container.innerHTML = `
-      <div class="compare-card-title">${data.name}, ${data.sys.country}</div>
-      <div class="compare-temp-row">
-        <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" style="width: 48px; height: 48px;" />
-        <div>
-          <span class="compare-temp-val">${tempVal}${unit}</span>
-          <div style="font-size: 0.8rem; color: var(--text-secondary);">Feels like ${feelsVal}${unit}</div>
-        </div>
-      </div>
-      <div style="font-size: 0.85rem; text-transform: capitalize; color: var(--accent-color); font-weight: 600;">${desc}</div>
-      <div class="compare-metric-row">
-        <span>Humidity</span>
-        <strong>${data.main.humidity}%</strong>
-      </div>
-      <div class="compare-metric-row">
-        <span>Wind Speed</span>
-        <strong>${data.wind.speed} m/s</strong>
-      </div>
-      <div class="compare-metric-row">
-        <span>Pressure</span>
-        <strong>${data.main.pressure} hPa</strong>
-      </div>
-    `;
-  }
 
   compareForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const secondCity = compareInput.value.trim();
     if (!secondCity) return;
     if (!currentWeatherData) {
-      showToast('Search for a city first!');
+      showToast('Search for a primary city first!');
       return;
     }
 
@@ -1165,6 +1171,7 @@ function setupCityComparison() {
       renderCompareCard(compareCardPrimary, currentWeatherData);
       renderCompareCard(compareCardSecondary, secondaryData);
       compareContainer.classList.remove('hidden');
+      compareContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
       showToast('Error comparing cities');
     }
