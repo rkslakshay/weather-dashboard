@@ -1061,3 +1061,79 @@ body {
     justify-content: center;
   }
 }
+
+/* ==========================================================================
+   Round 4: Dynamic Background Atmospheres & Chart.js Styling
+   ========================================================================== */
+
+body {
+  transition: background 0.8s ease-in-out, color 0.3s ease;
+}
+
+body.weather-clear-day {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0f172a 100%) !important;
+}
+
+body.weather-clear-night {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #020617 100%) !important;
+}
+
+body.weather-clouds {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 50%, #0f172a 100%) !important;
+}
+
+body.weather-rain {
+  background: linear-gradient(135deg, #1e293b 0%, #0f2b48 50%, #081226 100%) !important;
+}
+
+body.weather-thunderstorm {
+  background: linear-gradient(135deg, #2e1065 0%, #1e1b4b 50%, #0f172a 100%) !important;
+}
+
+body.weather-snow {
+  background: linear-gradient(135deg, #0369a1 0%, #38bdf8 50%, #1e293b 100%) !important;
+}
+
+body.weather-fog {
+  background: linear-gradient(135deg, #475569 0%, #334155 50%, #1e293b 100%) !important;
+}
+
+/* Interactive Temperature Chart Section */
+.chart-section {
+  margin-top: 28px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 20px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.chart-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chart-unit-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 220px;
+}

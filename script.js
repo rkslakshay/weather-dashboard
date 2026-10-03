@@ -54,6 +54,11 @@ const sunriseTime = document.getElementById('sunrise-time');
 const sunsetTime = document.getElementById('sunset-time');
 const daylightDuration = document.getElementById('daylight-duration');
 
+const chartCanvas = document.getElementById('temp-chart');
+const chartUnitBadge = document.getElementById('chart-unit-badge');
+let tempChart = null;
+let currentForecastData = null;
+
 // Temperature toggle elements
 const unitToggle = document.getElementById('unit-toggle');
 const unitLabel = document.getElementById('unit-label');
@@ -207,6 +212,9 @@ function displayCurrentWeather(data) {
   currentCity = data.name;
   updateFavoriteBtnState(data.name);
   fetchWeatherAlerts(data);
+
+  // Dynamic Background Atmosphere for Round 4
+  updateDynamicBackground(condition.main, iconCode);
 }
 
 // Step 5: Render 5-Day Forecast
@@ -238,6 +246,10 @@ function displayForecast(data) {
     `;
     forecastCards.appendChild(card);
   });
+
+  // Render Interactive Temperature Chart (Round 4)
+  currentForecastData = data;
+  renderForecastChart(data);
 }
 
 // Step 5B: Render Hourly Forecast (Next 12 hours)
@@ -377,6 +389,124 @@ async function fetchUV(lat, lon, currentWeatherData) {
   updateMetrics(currentWeatherData, uvi);
 }
 
+// Round 4 Helper Function: Dynamic Background Atmosphere
+function updateDynamicBackground(weatherMain, iconCode) {
+  document.body.classList.remove(
+    'weather-clear-day',
+    'weather-clear-night',
+    'weather-clouds',
+    'weather-rain',
+    'weather-thunderstorm',
+    'weather-snow',
+    'weather-fog'
+  );
+
+  const isNight = iconCode && iconCode.endsWith('n');
+  const main = (weatherMain || '').toLowerCase();
+
+  if (main.includes('thunderstorm')) {
+    document.body.classList.add('weather-thunderstorm');
+  } else if (main.includes('rain') || main.includes('drizzle')) {
+    document.body.classList.add('weather-rain');
+  } else if (main.includes('snow')) {
+    document.body.classList.add('weather-snow');
+  } else if (main.includes('cloud')) {
+    document.body.classList.add('weather-clouds');
+  } else if (main.includes('clear')) {
+    document.body.classList.add(isNight ? 'weather-clear-night' : 'weather-clear-day');
+  } else if (['fog', 'mist', 'haze', 'dust', 'smoke'].some(w => main.includes(w))) {
+    document.body.classList.add('weather-fog');
+  } else {
+    document.body.classList.add(isNight ? 'weather-clear-night' : 'weather-clear-day');
+  }
+}
+
+// Round 4 Helper Function: Interactive Temperature Chart (Chart.js)
+function renderForecastChart(data) {
+  if (!chartCanvas || typeof Chart === 'undefined' || !data || !data.list) return;
+
+  const dailyReadings = data.list.filter((reading) =>
+    reading.dt_txt.includes('12:00:00')
+  );
+
+  const labels = dailyReadings.map((reading) => {
+    const d = new Date(reading.dt * 1000);
+    return d.toLocaleDateString('en-US', { weekday: 'short' });
+  });
+
+  const temps = dailyReadings.map((reading) => {
+    return formatTempNumber(reading.main.temp);
+  });
+
+  const currentUnit = isCelsius ? '°C' : '°F';
+  if (chartUnitBadge) chartUnitBadge.textContent = currentUnit;
+
+  const ctx = chartCanvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+  gradient.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+  gradient.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
+
+  if (tempChart) {
+    tempChart.destroy();
+  }
+
+  tempChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: `Temperature (${currentUnit})`,
+          data: temps,
+          borderColor: '#38bdf8',
+          backgroundColor: gradient,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.38,
+          pointBackgroundColor: '#38bdf8',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          titleColor: '#38bdf8',
+          bodyColor: '#f8fafc',
+          borderColor: 'rgba(255, 255, 255, 0.15)',
+          borderWidth: 1,
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            label: (context) => ` Temp: ${context.parsed.y} ${currentUnit}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: 'rgba(248, 250, 252, 0.7)', font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' } }
+        },
+        y: {
+          grid: { color: 'rgba(255, 255, 255, 0.08)' },
+          ticks: {
+            color: 'rgba(248, 250, 252, 0.7)',
+            font: { family: 'Plus Jakarta Sans', size: 12 },
+            callback: (val) => `${val}${currentUnit}`
+          }
+        }
+      }
+    }
+  });
+}
+
 function showLoading() {
   loadingSpinner.classList.remove('hidden');
   weatherContent.classList.add('hidden');
@@ -490,6 +620,11 @@ function updateAllTemperatureDisplays() {
       el.textContent = `${formatTempNumber(rawHourlyTemps[index])}${currentUnit}`;
     }
   });
+
+  // Re-render Chart.js graph with updated unit values
+  if (currentForecastData) {
+    renderForecastChart(currentForecastData);
+  }
 }
 
 // Temperature Unit Toggle Listener

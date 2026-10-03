@@ -218,10 +218,22 @@
           <!-- Populated dynamically by script.js -->
         </div>
       </section>
+
+      <!-- Interactive Temperature Chart (Round 4) -->
+      <section class="chart-section">
+        <div class="chart-header">
+          <h3>5-Day Temperature Trend</h3>
+          <span id="chart-unit-badge" class="chart-unit-badge">°C</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="temp-chart"></canvas>
+        </div>
+      </section>
     </main>
   </div>
 
-  <!-- Scripts: config.js must load before script.js -->
+  <!-- External Libraries & Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="config.js"></script>
   <script src="script.js"></script>
 </body>
