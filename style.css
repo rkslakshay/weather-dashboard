@@ -144,12 +144,12 @@ body {
   font-weight: 600;
 }
 
-.autocomplete-item .country-badge {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 8px;
-  border-radius: 6px;
+.autocomplete-item .country-flag-badge {
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-form input {
@@ -1297,6 +1297,115 @@ body.weather-fog {
   color: var(--text-secondary);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   padding-top: 6px;
+}
+
+/* PDF Export Button */
+.pdf-btn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.pdf-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+/* Extensive City Comparison Styling */
+.compare-badge-highlight {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.badge-warmer {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.badge-cooler {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.badge-better-aqi {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.compare-section-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-top: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 3px;
+}
+
+/* Professional PDF Report Printable Layout */
+.pdf-report-container {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 30px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  border-radius: 12px;
+  width: 700px;
+  box-sizing: border-box;
+}
+
+.pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #38bdf8;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.pdf-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.pdf-subtitle {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.pdf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.pdf-box {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.pdf-box-label {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.pdf-box-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-top: 4px;
 }
 
 @media (max-width: 600px) {

@@ -182,9 +182,31 @@ async function fetchWeatherData(city) {
   }
 }
 
+// Country Flag Emoji & Full Country Name Helpers
+function getCountryFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return '🌐';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+function getCountryName(countryCode) {
+  if (!countryCode) return '';
+  try {
+    const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+    return regionNames.of(countryCode.toUpperCase()) || countryCode;
+  } catch (e) {
+    return countryCode;
+  }
+}
+
 // Step 4: Render Current Weather to the DOM
 function displayCurrentWeather(data) {
-  cityName.textContent = `${data.name}, ${data.sys.country}`;
+  const flag = getCountryFlagEmoji(data.sys.country);
+  const countryFull = getCountryName(data.sys.country);
+  cityName.textContent = `${data.name}, ${countryFull} ${flag}`;
 
   const condition = data.weather[0];
   weatherCondition.textContent = condition.description;
@@ -740,15 +762,17 @@ function setupCityAutocomplete() {
           matches.forEach((item) => {
             const row = document.createElement('div');
             row.className = 'autocomplete-item';
+            const flag = getCountryFlagEmoji(item.country);
+            const countryFull = getCountryName(item.country);
             const stateStr = item.state ? `, ${item.state}` : '';
             row.innerHTML = `
-              <span class="city-name-part">${item.name}${stateStr}</span>
-              <span class="country-badge">${item.country}</span>
+              <span class="city-name-part">${item.name}${stateStr}, ${countryFull}</span>
+              <span class="country-flag-badge">${flag}</span>
             `;
             row.addEventListener('click', () => {
-              cityInput.value = `${item.name}, ${item.country}`;
+              cityInput.value = `${item.name}, ${countryFull} ${flag}`;
               autocompleteList.classList.add('hidden');
-              fetchWeatherData(cityInput.value);
+              fetchWeatherData(item.name);
             });
             autocompleteList.appendChild(row);
           });
@@ -1075,110 +1099,129 @@ function showToast(msg) {
   }, 2500);
 }
 
-function setupShareReport() {
-  if (!shareBtn) return;
-  shareBtn.addEventListener('click', async () => {
+// Professional PDF Report Generator
+function setupExportPdf() {
+  const exportPdfBtn = document.getElementById('export-pdf-btn');
+  if (!exportPdfBtn) return;
+
+  exportPdfBtn.addEventListener('click', async () => {
     if (!currentWeatherData) {
       showToast('No weather data loaded yet');
       return;
     }
-
-    const name = `${currentWeatherData.name}, ${currentWeatherData.sys.country}`;
-    const temp = `${formatTempNumber(currentWeatherData.main.temp)}${isCelsius ? '°C' : '°F'}`;
-    const feels = `${formatTempNumber(currentWeatherData.main.feels_like)}${isCelsius ? '°C' : '°F'}`;
-    const condition = currentWeatherData.weather[0] ? currentWeatherData.weather[0].description : '';
-    const hum = `${currentWeatherData.main.humidity}%`;
-    const wind = `${currentWeatherData.wind.speed} m/s`;
-    const press = `${currentWeatherData.main.pressure} hPa`;
-    const advice = activityAdvice ? activityAdvice.textContent : '';
-
-    const summary = `🌤️ Weather Report for ${name}:\n• Temperature: ${temp} (Feels like ${feels})\n• Condition: ${condition}\n• Humidity: ${hum} | Wind: ${wind} | Pressure: ${press}\n• Smart Advice: ${advice}`;
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(summary);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = summary;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-      showToast('Weather report copied to clipboard! 📋');
-    } catch (err) {
-      showToast('Copied summary to clipboard!');
-    }
-  });
-}
-
-function renderCompareCard(container, data) {
-  const unit = isCelsius ? '°C' : '°F';
-  const tempVal = formatTempNumber(data.main.temp);
-  const feelsVal = formatTempNumber(data.main.feels_like);
-  const iconCode = data.weather[0] ? data.weather[0].icon : '01d';
-  const desc = data.weather[0] ? data.weather[0].description : '';
-
-  container.innerHTML = `
-    <div class="compare-card-title">${data.name}, ${data.sys.country}</div>
-    <div class="compare-temp-row">
-      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" style="width: 48px; height: 48px;" />
-      <div>
-        <span class="compare-temp-val">${tempVal}${unit}</span>
-        <div style="font-size: 0.8rem; color: var(--text-secondary);">Feels like ${feelsVal}${unit}</div>
-      </div>
-    </div>
-    <div style="font-size: 0.85rem; text-transform: capitalize; color: var(--accent-color); font-weight: 600;">${desc}</div>
-    <div class="compare-metric-row">
-      <span>Humidity</span>
-      <strong>${data.main.humidity}%</strong>
-    </div>
-    <div class="compare-metric-row">
-      <span>Wind Speed</span>
-      <strong>${data.wind.speed} m/s</strong>
-    </div>
-    <div class="compare-metric-row">
-      <span>Pressure</span>
-      <strong>${data.main.pressure} hPa</strong>
-    </div>
-  `;
-}
-
-function setupCityComparison() {
-  if (!compareForm) return;
-
-  compareForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const secondCity = compareInput.value.trim();
-    if (!secondCity) return;
-    if (!currentWeatherData) {
-      showToast('Search for a primary city first!');
+    if (typeof html2pdf === 'undefined') {
+      showToast('PDF generator loading... Please try again');
       return;
     }
 
-    try {
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(secondCity)}&units=metric&appid=${API_KEY}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        showToast(`City "${secondCity}" not found`);
-        return;
-      }
-      const secondaryData = await res.json();
+    showToast('Generating PDF report... 📄');
 
-      renderCompareCard(compareCardPrimary, currentWeatherData);
-      renderCompareCard(compareCardSecondary, secondaryData);
-      compareContainer.classList.remove('hidden');
-      compareContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } catch (err) {
-      showToast('Error comparing cities');
+    const countryFull = getCountryName(currentWeatherData.sys.country);
+    const flag = getCountryFlagEmoji(currentWeatherData.sys.country);
+    const cityNameStr = `${currentWeatherData.name}, ${countryFull} ${flag}`;
+    const unit = isCelsius ? '°C' : '°F';
+    const tempVal = `${formatTempNumber(currentWeatherData.main.temp)}${unit}`;
+    const feelsVal = `${formatTempNumber(currentWeatherData.main.feels_like)}${unit}`;
+    const condition = currentWeatherData.weather[0] ? currentWeatherData.weather[0].description : '';
+    const humidityVal = `${currentWeatherData.main.humidity}%`;
+    const windVal = `${currentWeatherData.wind.speed} m/s`;
+    const pressureVal = `${currentWeatherData.main.pressure} hPa`;
+    const visVal = `${(currentWeatherData.visibility / 1000).toFixed(1)} km`;
+    const adviceText = activityAdvice ? activityAdvice.textContent : 'N/A';
+    const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    const pdfTemplate = document.createElement('div');
+    pdfTemplate.style.position = 'fixed';
+    pdfTemplate.style.left = '-9999px';
+    pdfTemplate.style.top = '0';
+    pdfTemplate.innerHTML = `
+      <div class="pdf-report-container">
+        <div class="pdf-header">
+          <div>
+            <div class="pdf-title">🌤️ Weather Dashboard</div>
+            <div class="pdf-subtitle">Official Executive Weather Report</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.9rem; font-weight: 700; color: #38bdf8;">${dateStr}</div>
+            <div style="font-size: 0.8rem; color: #94a3b8;">Issued at ${timeStr}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: rgba(30, 41, 59, 0.9); padding: 18px; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.3);">
+          <div>
+            <h1 style="margin: 0; font-size: 1.8rem; color: #ffffff;">${cityNameStr}</h1>
+            <div style="font-size: 1rem; text-transform: capitalize; color: #38bdf8; margin-top: 4px;">${condition}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 2.6rem; font-weight: 700; color: #38bdf8;">${tempVal}</div>
+            <div style="font-size: 0.85rem; color: #94a3b8;">Feels like ${feelsVal}</div>
+          </div>
+        </div>
+
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 8px;">Meteorological Parameters & Breakdown</div>
+        <div class="pdf-grid">
+          <div class="pdf-box">
+            <div class="pdf-box-label">Humidity</div>
+            <div class="pdf-box-val">${humidityVal}</div>
+          </div>
+          <div class="pdf-box">
+            <div class="pdf-box-label">Wind Speed</div>
+            <div class="pdf-box-val">${windVal}</div>
+          </div>
+          <div class="pdf-box">
+            <div class="pdf-box-label">Pressure</div>
+            <div class="pdf-box-val">${pressureVal}</div>
+          </div>
+          <div class="pdf-box">
+            <div class="pdf-box-label">Visibility</div>
+            <div class="pdf-box-val">${visVal}</div>
+          </div>
+          <div class="pdf-box">
+            <div class="pdf-box-label">UV Index</div>
+            <div class="pdf-box-val">${uvIndex ? uvIndex.textContent : '--'}</div>
+          </div>
+          <div class="pdf-box">
+            <div class="pdf-box-label">Dew Point</div>
+            <div class="pdf-box-val">${dewPoint ? dewPoint.textContent : '--'}</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 18px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); padding: 14px; border-radius: 8px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 4px;">Smart Activity Recommendation</div>
+          <div style="font-size: 0.95rem; color: #f8fafc; line-height: 1.4;">${adviceText}</div>
+        </div>
+
+        <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b;">
+          <span>Data Source: OpenWeatherMap API</span>
+          <span>Verified Meteorological Summary</span>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(pdfTemplate);
+
+    const opt = {
+      margin:       [8, 8, 8, 8],
+      filename:     `Weather_Report_${currentWeatherData.name}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(pdfTemplate.firstElementChild).save();
+      showToast('PDF Report downloaded! 📄');
+    } catch (e) {
+      console.error(e);
+      showToast('Error exporting PDF');
+    } finally {
+      document.body.removeChild(pdfTemplate);
     }
   });
 }
 
-setupShareReport();
+setupExportPdf();
 setupCityComparison();
 
 // Initial fetch on page load (Default city)
