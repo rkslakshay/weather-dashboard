@@ -1,47 +1,64 @@
 # Weather Dashboard 🌤️
 
-A feature-packed, responsive weather dashboard built with vanilla JavaScript, HTML5, and CSS3. Powered by the OpenWeatherMap REST API with interactive Leaflet maps, Chart.js analytics, and PDF reporting.
+A feature-packed, responsive weather dashboard built with vanilla JavaScript, HTML5, and CSS3. Powered by the OpenWeatherMap REST API with interactive Leaflet maps, Chart.js analytics, PDF reporting, PWA offline support, and a secure serverless API proxy.
 
 [![Checklist Status](https://img.shields.io/badge/Checklist-100%25%20Completed-brightgreen)](#-project-checklist--feature-status)
+[![PWA Ready](https://img.shields.io/badge/PWA-Enabled-blue)](manifest.json)
+[![CI Pipeline](https://img.shields.io/badge/CI-Automated-success)](.github/workflows/ci-deploy.yml)
+
 *See full development roadmap in [CHECKLIST.md](CHECKLIST.md).*
 
 ---
 
-## 📋 Project Checklist & Feature Status
+## 📋 Highlights & Key Features
 
-- [x] **Default City on Load**: Delhi, India loads automatically on first visit without manual search.
-- [x] **Smart City Autocomplete**: Intelligent relevance ranking (exact match $\rightarrow$ prefix $\rightarrow$ fuzzy/substring $\rightarrow$ region) returning top 5 prominent cities with cross-platform country flags and keyboard navigation (`↑`, `↓`, `Enter`, `Esc`).
-- [x] **Real-Time Meteorological Metrics**: Live temperature, feels-like, humidity, wind speed, barometric pressure, and visibility.
-- [x] **Detailed Atmospheric Breakdown**: Real-time UV index, dew point calculation, rotating wind compass direction, and pressure trend tracker.
-- [x] **5-Day & Hourly Forecasts**: 3-hour interval breakdown for the next 12 hours and daily midday 5-day forecast cards.
-- [x] **Interactive Temperature Curve**: Responsive Chart.js graph displaying forecast trends with dynamic gradients and tooltips.
-- [x] **Interactive Radar & Map**: Integrated Leaflet.js map with toggleable precipitation, temperature, cloud cover, and wind layers.
-- [x] **Pollen & Allergy Health Forecast**: Seasonal tree, grass, and weed pollen risk levels with actionable health recommendations.
-- [x] **Air Quality Index (AQI)**: EPA-standard PM2.5-based AQI calculations with animated progress indicators and category badges.
-- [x] **Sun Arc Timeline & Local Clock**: Visual solar arc showing sunrise/sunset progression alongside a live timezone-shifted local clock.
-- [x] **Contextual Weather Alerts**: Automatic detection and warnings for thunderstorms, extreme heat, freeze/frost, high winds, and dense fog.
-- [x] **Side-by-Side City Comparison**: Compare live weather conditions across two cities simultaneously.
-- [x] **Professional PDF Weather Report**: Client-side single-click export of an executive weather summary using `html2pdf.js`.
-- [x] **Geolocation**: One-click device GPS coordinate detection for immediate local weather.
-- [x] **Persistent Favorites & History**: Save favorite cities and quick-access recent search history stored in `localStorage`.
-- [x] **Unit Conversion (°C / °F)**: Instant global unit switching across all cards, charts, hourly stats, and comparison panels.
-- [x] **Dark / Light Theme**: Dynamic theme switching with persistent user preference.
-- [x] **Dynamic Weather Atmospheres**: Adaptive background gradients and atmospheric effects reflecting current weather conditions.
-- [x] **Cross-Platform Country Flags**: High-resolution SVG/PNG country flags via FlagCDN.
+- 🏙️ **Default City on Load**: Delhi, India loads automatically on initial launch without manual interaction.
+- 🔍 **Smart City Autocomplete**: Intelligent ranking (Exact $\rightarrow$ Prefix $\rightarrow$ Fuzzy/Substring $\rightarrow$ Region) displaying up to 5 top cities with cross-platform country flags and keyboard navigation (`↑`, `↓`, `Enter`, `Esc`).
+- ⚡ **Dual-Mode API & TTL Caching**: LocalStorage + in-memory smart caching (10-min TTL) eliminates redundant API requests and avoids rate limits. Seamlessly falls back between serverless proxy and direct client calls.
+- 📱 **Progressive Web App (PWA)**: Installable on desktop and mobile with `manifest.json` and `service-worker.js` offline shell caching.
+- 🌡️ **Comprehensive Meteorology**: Live temperature, feels-like, humidity, wind speed, barometric pressure, visibility, UV index, and dew point.
+- 🧭 **Atmospheric Dynamics**: Rotating wind direction compass, pressure trend tracker (Rising/Falling/Steady), and dynamic weather activity advisor.
+- 📈 **Visual Analytics & Radar**: Smooth Chart.js temperature curve, animated sun progression arc, local timezone clock, and an interactive Leaflet radar map with Precipitation, Temperature, Clouds, and Wind layers.
+- 🌿 **Health & Allergy Forecast**: Tree, grass, and weed pollen risk indicators alongside EPA PM2.5-based Air Quality Index (AQI).
+- ⚖️ **Multi-City Comparison & PDF Export**: Compare two cities side-by-side and export executive reports in PDF with a single click.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Architecture & Tech Stack
 
-- **Frontend**: HTML5, CSS3 (Modern Glassmorphism, CSS Grid, Flexbox)
-- **Logic**: Vanilla JavaScript (ES6+, Async/Await, Fetch API, DOM APIs)
+- **Frontend**: Semantic HTML5, Glassmorphism CSS3 (CSS Grid & Flexbox, CSS Variables, Theme Transitions)
+- **Logic**: Vanilla ES6+ JavaScript (Async/Await, Cache Storage, Service Worker API, Geolocation API, Canvas)
+- **Security & Proxy**: Serverless Node.js API Proxy (`api/weather.js`) with security headers in `vercel.json`
 - **Data & APIs**: OpenWeatherMap API (Current Weather, 5-Day Forecast, Air Pollution, Geo Direct)
 - **Mapping & Charts**: Leaflet.js, CartoDB Dark Matter tiles, Chart.js
 - **Exporting**: html2pdf.js / html2canvas
+- **CI/CD**: GitHub Actions automated syntax check and GitHub Pages deployment workflow
 
 ---
 
-## 🚀 How to Run Locally
+## 🚀 Deployment Guide
+
+### Option 1: Deploy to Vercel (Recommended — Full API Key Protection)
+1. Fork or push this repository to GitHub.
+2. Import the project into [Vercel](https://vercel.com).
+3. Under **Project Settings $\rightarrow$ Environment Variables**, add:
+   - `OPENWEATHER_API_KEY`: Your OpenWeatherMap API key.
+4. Click **Deploy**. Vercel will automatically serve the static assets and the secure serverless proxy at `/api/weather`.
+
+### Option 2: Deploy to GitHub Pages (Static Hosting)
+1. Go to your repository **Settings $\rightarrow$ Pages**.
+2. Under **Build and deployment**, select **GitHub Actions**.
+3. Push to `main` — the included `.github/workflows/ci-deploy.yml` pipeline will automatically validate the code and deploy your dashboard.
+4. Create a repository secret or provide `config.js` for client-side API authentication.
+
+### Option 3: Deploy to Netlify
+1. Connect your repository to [Netlify](https://www.netlify.com).
+2. Set build directory to `.` (root).
+3. Add environment variable `OPENWEATHER_API_KEY` in Netlify dashboard.
+
+---
+
+## 💻 How to Run Locally
 
 1. Clone this repository:
    ```bash
@@ -55,5 +72,9 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
      API_KEY: "YOUR_API_KEY_HERE"
    };
    ```
-   *(Note: `config.js` is excluded from version control via `.gitignore`)*
-4. Open `index.html` with VS Code Live Server or directly in your browser.
+   *(Note: `config.js` is excluded from git via `.gitignore`)*
+4. Open `index.html` with VS Code Live Server or any browser:
+   ```bash
+   npx serve .
+   # or simply double-click index.html
+   ```

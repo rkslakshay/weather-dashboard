@@ -74,8 +74,113 @@ const unitToggle = document.getElementById('unit-toggle');
 const unitLabel = document.getElementById('unit-label');
 const feelsUnit = document.getElementById('feels-unit');
 
-// Read the API Key from config.js
+// Read the API Key from config.js (fallback for direct client-side requests)
 const API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : '5ff7e87116093c9b53407f7a546326c9';
+
+// --- Production & Caching Configuration ---
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+let isProxyAvailable = window.location.protocol.startsWith('http');
+
+/**
+ * Retrieve cached API response from localStorage if still valid
+ */
+function getCachedData(cacheKey, ttl = CACHE_TTL_MS) {
+  try {
+    const raw = localStorage.getItem(`weather_cache_${cacheKey}`);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (Date.now() - entry.timestamp < ttl) {
+      return entry.data;
+    }
+    localStorage.removeItem(`weather_cache_${cacheKey}`);
+  } catch (e) {
+    // Ignore parse or storage errors
+  }
+  return null;
+}
+
+/**
+ * Save API response to localStorage with timestamp
+ */
+function setCachedData(cacheKey, data) {
+  try {
+    const entry = {
+      timestamp: Date.now(),
+      data: data
+    };
+    localStorage.setItem(`weather_cache_${cacheKey}`, JSON.stringify(entry));
+  } catch (e) {
+    // Ignore storage quota warnings
+  }
+}
+
+/**
+ * Universal dual-mode API fetcher with TTL caching
+ * Seamlessly routes to /api/weather serverless proxy if available,
+ * or direct OpenWeatherMap endpoint with API_KEY as robust fallback.
+ */
+async function fetchWeatherApi(endpoint, params = {}, options = {}) {
+  const ttl = options.ttl !== undefined ? options.ttl : CACHE_TTL_MS;
+  const useCache = options.cache !== false;
+  const paramString = new URLSearchParams(params).toString();
+  const cacheKey = `${endpoint}_${paramString}`;
+
+  if (useCache) {
+    const cached = getCachedData(cacheKey, ttl);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const directBaseMap = {
+    weather: 'https://api.openweathermap.org/data/2.5/weather',
+    forecast: 'https://api.openweathermap.org/data/2.5/forecast',
+    air_pollution: 'https://api.openweathermap.org/data/2.5/air_pollution',
+    uvi: 'https://api.openweathermap.org/data/2.5/uvi',
+    'geo/1.0/direct': 'https://api.openweathermap.org/geo/1.0/direct'
+  };
+
+  // Try serverless proxy first if in an HTTP(S) environment
+  if (isProxyAvailable) {
+    try {
+      const proxyUrl = `/api/weather?endpoint=${encodeURIComponent(endpoint)}&${paramString}`;
+      const res = await fetch(proxyUrl);
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (useCache) setCachedData(cacheKey, data);
+        return data;
+      }
+      if (res.status === 404 && !contentType.includes('application/json')) {
+        isProxyAvailable = false;
+      } else if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const err = new Error(errData.message || `API error (${res.status})`);
+        err.status = res.status;
+        throw err;
+      }
+    } catch (err) {
+      if (err.status) throw err;
+      isProxyAvailable = false;
+    }
+  }
+
+  // Fallback to direct OpenWeatherMap endpoint
+  const baseUrl = directBaseMap[endpoint] || `https://api.openweathermap.org/data/2.5/${endpoint}`;
+  const directUrl = `${baseUrl}?${paramString}&appid=${API_KEY}`;
+  const directRes = await fetch(directUrl);
+
+  if (!directRes.ok) {
+    const errData = await directRes.json().catch(() => ({}));
+    const err = new Error(errData.message || `API request failed with status ${directRes.status}`);
+    err.status = directRes.status;
+    throw err;
+  }
+
+  const data = await directRes.json();
+  if (useCache) setCachedData(cacheKey, data);
+  return data;
+}
 
 // State variables for temperature toggle
 let isCelsius = localStorage.getItem('weatherTempUnit') !== 'F';
@@ -135,39 +240,11 @@ async function fetchWeatherData(city) {
   hideError();
 
   try {
-    // Current Weather URL
-    const currentWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-      city
-    )}&units=metric&appid=${API_KEY}`;
-
-    // 5-Day Forecast URL
-    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(
-      city
-    )}&units=metric&appid=${API_KEY}`;
-
-    // Fire both network requests in parallel
-    const [weatherRes, forecastRes] = await Promise.all([
-      fetch(currentWeatherUrl),
-      fetch(forecastUrl)
+    // Fire both requests concurrently using smart dual-mode fetcher & cache
+    const [currentData, forecastData] = await Promise.all([
+      fetchWeatherApi('weather', { q: city, units: 'metric' }),
+      fetchWeatherApi('forecast', { q: city, units: 'metric' })
     ]);
-
-    // Handle 404 or bad requests
-    if (!weatherRes.ok || !forecastRes.ok) {
-      if (weatherRes.status === 404 || forecastRes.status === 404) {
-        throw new Error(`City "${city}" not found. Please verify spelling.`);
-      } else if (weatherRes.status === 401) {
-        throw new Error('Invalid API key. Please check your config.js.');
-      } else {
-        throw new Error('Something went wrong fetching data.');
-      }
-    }
-
-    const currentData = await weatherRes.json();
-    const forecastData = await forecastRes.json();
-
-    // Log the data in DevTools console (Question 3 & 4 exploration)
-    console.log('Current Weather Data:', currentData);
-    console.log('Forecast Data:', forecastData);
 
     // Update UI with the retrieved data
     displayCurrentWeather(currentData);
@@ -176,7 +253,13 @@ async function fetchWeatherData(city) {
     saveToHistory(city);
     showContent();
   } catch (err) {
-    showError(err.message);
+    if (err.status === 404 || (err.message && err.message.toLowerCase().includes('not found'))) {
+      showError(`City "${city}" not found. Please verify spelling.`);
+    } else if (err.status === 401) {
+      showError('Invalid API key. Please check your configuration.');
+    } else {
+      showError(err.message || 'Something went wrong fetching data.');
+    }
   } finally {
     hideLoading();
   }
@@ -413,10 +496,8 @@ function updateMetrics(data, uvi) {
 async function fetchUV(lat, lon, currentWeatherData) {
   let uvi = null;
   try {
-    const uviUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${lat}&lon=${lon}&appid=${API_KEY}`;
-    const res = await fetch(uviUrl);
-    if (res.ok) {
-      const uviData = await res.json();
+    const uviData = await fetchWeatherApi('uvi', { lat, lon }, { ttl: 15 * 60 * 1000 });
+    if (uviData && typeof uviData.value !== 'undefined') {
       uvi = uviData.value;
     }
   } catch (e) {
@@ -724,20 +805,10 @@ async function fetchWeatherByCoords(lat, lon) {
   hideError();
 
   try {
-    const currentWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
-    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`;
-
-    const [weatherRes, forecastRes] = await Promise.all([
-      fetch(currentWeatherUrl),
-      fetch(forecastUrl)
+    const [currentData, forecastData] = await Promise.all([
+      fetchWeatherApi('weather', { lat, lon, units: 'metric' }),
+      fetchWeatherApi('forecast', { lat, lon, units: 'metric' })
     ]);
-
-    if (!weatherRes.ok || !forecastRes.ok) {
-      throw new Error('Failed to retrieve weather for your coordinates.');
-    }
-
-    const currentData = await weatherRes.json();
-    const forecastData = await forecastRes.json();
 
     displayCurrentWeather(currentData);
     displayForecast(forecastData);
@@ -745,7 +816,7 @@ async function fetchWeatherByCoords(lat, lon) {
     saveToHistory(currentData.name);
     showContent();
   } catch (err) {
-    showError(err.message);
+    showError(err.message || 'Failed to retrieve weather for your coordinates.');
   } finally {
     hideLoading();
   }
@@ -908,10 +979,8 @@ function setupCityAutocomplete() {
 
     autocompleteDebounceTimer = setTimeout(async () => {
       try {
-        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=10&appid=${API_KEY}`;
-        const res = await fetch(geoUrl);
-        if (!res.ok) return;
-        const matches = await res.json();
+        const matches = await fetchWeatherApi('geo/1.0/direct', { q: query, limit: 10 }, { ttl: 60 * 60 * 1000 });
+        if (!matches || !matches.length) return;
 
         if (matches && matches.length > 0) {
           // Rank matches based on intelligent relevance priority:
@@ -1080,14 +1149,7 @@ clearHistoryBtn.addEventListener('click', () => {
 // Fetch Air Quality Index
 async function fetchAQI(lat, lon) {
   try {
-    const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`;
-    const response = await fetch(aqiUrl);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch AQI');
-    }
-
-    const data = await response.json();
+    const data = await fetchWeatherApi('air_pollution', { lat, lon }, { ttl: 15 * 60 * 1000 });
     const aqi = data.list[0].main.aqi; // 1-5 scale
 
     // Get detailed AQI components
@@ -1342,21 +1404,11 @@ function setupCityComparison() {
     }
 
     try {
-      const compareUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-        secondCity
-      )}&units=metric&appid=${API_KEY}`;
-      const res = await fetch(compareUrl);
-
-      if (!res.ok) {
-        showToast(`City "${secondCity}" not found`);
-        return;
-      }
-
-      const data2 = await res.json();
+      const data2 = await fetchWeatherApi('weather', { q: secondCity, units: 'metric' });
       renderComparison(currentWeatherData, data2);
     } catch (err) {
       console.error('Comparison error:', err);
-      showToast('Error comparing cities');
+      showToast(`City "${secondCity}" not found`);
     }
   });
 }
@@ -1524,6 +1576,17 @@ function setupExportPdf() {
   });
 }
 
+// Service Worker Registration for PWA & Offline Support
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then((reg) => console.log('PWA Service Worker registered:', reg.scope))
+        .catch((err) => console.warn('PWA Service Worker registration skipped:', err.message));
+    });
+  }
+}
+
 // App Initialization
 function initApp() {
   loadTheme();
@@ -1532,6 +1595,7 @@ function initApp() {
   setupCityAutocomplete();
   setupExportPdf();
   setupCityComparison();
+  registerServiceWorker();
 
   // Set default city to Delhi on page load
   cityInput.value = 'Delhi';

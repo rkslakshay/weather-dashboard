@@ -71,7 +71,19 @@ This checklist tracks the implementation status of all features, architecture co
 
 ---
 
+### 🛡️ Round 7: Production Readiness, Security & PWA
+- [x] **Serverless API Proxy (`api/weather.js`)**: Server-side proxy for Vercel/Netlify that injects API keys securely and hides them from DevTools network inspect.
+- [x] **Dual-Mode API Engine**: Seamlessly toggles between serverless proxy and direct browser calls with fallback resilience.
+- [x] **Smart TTL Caching Layer**: 10-minute localStorage + memory caching to prevent quota exhaustion and speed up repeated visits.
+- [x] **Progressive Web App (PWA)**: Complete `manifest.json` with app icons, theme color, and standalone mobile display mode.
+- [x] **Offline Service Worker (`service-worker.js`)**: Cache-first for core static assets and network-first with offline fallback for weather data.
+- [x] **Security Hardening (`vercel.json`)**: Modern HTTP headers including `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy`.
+- [x] **CI/CD Pipeline (`.github/workflows/ci-deploy.yml`)**: Automated syntax validation for JavaScript and automated GitHub Pages deployment.
+- [x] **Multi-Platform Deployment Documentation**: Step-by-step guides for Vercel, Netlify, and GitHub Pages in `README.md`.
+
+---
+
 ## 🔒 Security & Code Standards
-- [x] **API Key Protection**: API keys extracted into git-ignored `config.js` with `config.example.js` template provided.
-- [x] **Zero Dependencies in Production**: Runs purely in the browser with CDN script tags.
+- [x] **API Key Protection**: Serverless proxy or git-ignored `config.js` (`config.example.js` provided).
+- [x] **Zero Build Overhead**: Runs natively in any browser or modern serverless host without mandatory complex bundlers.
 - [x] **Clean DOM Lifecycle**: Initialization bound to `DOMContentLoaded` for guaranteed safe rendering.
