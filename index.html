@@ -3,195 +3,232 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Weather Dashboard</title>
+  <title>SkyPulse — Premium Weather Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#1e293b" />
+  <meta name="theme-color" content="#07071a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="WeatherDash" />
+  <meta name="apple-mobile-web-app-title" content="SkyPulse" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Inter + Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Leaflet.js CSS for Interactive Radar Map -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Leaflet.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header / Search Bar -->
-    <header class="header">
-      <h1>
-        Weather Dashboard
-        <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
-          <span class="theme-icon">◐</span>
-        </button>
-      </h1>
-      <form id="search-form" class="search-form">
-        <div class="search-input-wrapper">
-          <input
-            type="text"
-            id="city-input"
-            placeholder="Search for a city (e.g., Tokyo, London, Delhi)..."
-            autocomplete="off"
-            required
-          />
-          <div id="autocomplete-list" class="autocomplete-dropdown hidden"></div>
-        </div>
-        <button type="submit" id="search-btn">Search</button>
-        <button type="button" id="geo-btn" title="Use current location">📍</button>
-      </form>
 
-      <!-- Search History -->
-      <div id="search-history" class="search-history hidden">
-        <div class="history-header">
-          <span>Recent Searches</span>
-          <button id="clear-history" class="clear-history-btn">Clear</button>
-        </div>
-        <div id="history-chips" class="history-chips"></div>
+  <!-- Animated background blobs -->
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-brand">
+      <span class="brand-icon">⛅</span>
+      <span class="brand-name">SkyPulse</span>
+    </div>
+
+    <form id="search-form" class="search-form">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="city-input"
+          placeholder="Search city, country… e.g. Tokyo, London, Delhi"
+          autocomplete="off"
+          required
+        />
+        <div id="autocomplete-list" class="autocomplete-dropdown hidden"></div>
       </div>
+      <button type="submit" id="search-btn" class="search-btn-hidden" aria-hidden="true" tabindex="-1">Search</button>
+      <button type="button" id="geo-btn" class="geo-btn" title="Use current location">📍</button>
+    </form>
 
-      <!-- Favorite Cities -->
-      <div id="favorites-section" class="favorites-section hidden">
-        <div class="favorites-header">
-          <span>★ Favorite Cities</span>
-        </div>
-        <div id="favorites-chips" class="favorites-chips"></div>
+    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
+      <span class="theme-icon" id="theme-icon">◐</span>
+    </button>
+  </header>
+
+  <!-- ===== CHIPS AREA: History + Favorites ===== -->
+  <div class="chips-area">
+    <!-- Search History -->
+    <div id="search-history" class="search-history hidden">
+      <div class="history-header">
+        <span>🕘 Recent</span>
+        <button id="clear-history" class="clear-history-btn">Clear</button>
       </div>
-    </header>
+      <div id="history-chips" class="history-chips"></div>
+    </div>
 
-    <!-- Weather Alerts Banner -->
-    <div id="alerts-banner" class="alerts-banner hidden">
-      <div class="alert-icon">⚠</div>
-      <div class="alert-content">
-        <strong id="alert-title">Weather Alert</strong>
-        <p id="alert-description">--</p>
+    <!-- Favorite Cities -->
+    <div id="favorites-section" class="favorites-section hidden">
+      <div class="favorites-header">
+        <span>★ Favorites</span>
       </div>
-      <button id="alert-toggle" class="alert-toggle-btn">Details</button>
+      <div id="favorites-chips" class="favorites-chips"></div>
     </div>
-    <div id="alert-details" class="alert-details hidden">
-      <div id="alert-full-text"></div>
+  </div>
+
+  <!-- ===== ALERTS ===== -->
+  <div id="alerts-banner" class="alerts-banner hidden">
+    <div class="alert-icon">⚠️</div>
+    <div class="alert-content">
+      <strong id="alert-title">Weather Alert</strong>
+      <p id="alert-description">--</p>
     </div>
+    <button id="alert-toggle" class="alert-toggle-btn">Details</button>
+  </div>
+  <div id="alert-details" class="alert-details hidden">
+    <div id="alert-full-text"></div>
+  </div>
 
-    <!-- Error Banner (Hidden by default) -->
-    <div id="error-message" class="error-banner hidden">
-      <span id="error-text">City not found. Please try again.</span>
-    </div>
+  <!-- ===== ERROR ===== -->
+  <div id="error-message" class="error-banner hidden">
+    <span id="error-text">City not found. Please try again.</span>
+  </div>
 
-    <!-- Loading Spinner (Hidden by default) -->
-    <div id="loading-spinner" class="spinner-container hidden">
-      <div class="spinner"></div>
-      <p>Fetching weather data...</p>
-    </div>
+  <!-- ===== LOADING ===== -->
+  <div id="loading-spinner" class="spinner-container hidden">
+    <div class="spinner"></div>
+    <p>Fetching weather data…</p>
+  </div>
 
-    <!-- Toast Notification (Round 5) -->
-    <div id="toast" class="toast hidden">Report copied to clipboard!</div>
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast hidden">Report copied to clipboard!</div>
 
-    <!-- Weather Content (Shown when data is loaded) -->
-    <main id="weather-content" class="weather-content hidden">
-      <!-- Current Weather Card -->
-      <section class="current-weather-card">
-        <div class="current-header">
-          <div>
+  <!-- ===== MAIN WEATHER CONTENT ===== -->
+  <main id="weather-content" class="weather-content hidden">
+    <div class="layout-grid">
+
+      <!-- =================== LEFT SIDEBAR =================== -->
+      <aside class="sidebar">
+
+        <!-- Hero Current Weather Card -->
+        <section class="current-weather-card card-glass card-anim" style="--anim-delay:0.05s">
+          <div class="cw-top-row">
             <div class="city-title-wrapper">
               <h2 id="city-name">--</h2>
               <button id="favorite-btn" class="favorite-btn" title="Add to favorites">☆</button>
-              <button id="export-pdf-btn" class="share-btn pdf-btn" title="Export professional PDF report">📄 PDF Report</button>
             </div>
-            <div class="time-row">
-              <p id="current-date" class="date-text">--</p>
-              <span class="time-dot">•</span>
-              <p id="local-time" class="local-time-text" title="Local city time">🕒 --:--</p>
-            </div>
+            <button id="export-pdf-btn" class="btn-pill btn-pdf share-btn pdf-btn" title="Export PDF report">📄 PDF</button>
           </div>
-          <div class="condition-badge">
-            <img id="weather-icon" src="" alt="Weather Icon" />
-            <span id="weather-condition">--</span>
-          </div>
-        </div>
 
-        <div class="current-body">
-          <div class="temp-display">
-            <span id="temperature" class="temp-val">--</span>
-            <span id="unit-label" class="unit">°C</span>
+          <div class="time-row">
+            <p id="current-date" class="date-text">--</p>
+            <span class="time-dot">•</span>
+            <p id="local-time" class="local-time-text" title="Local city time">🕒 --:--</p>
           </div>
-          <button id="unit-toggle" class="unit-toggle-btn">Switch to °F</button>
-          <p class="feels-like">Feels like: <span id="feels-like">--</span><span id="feels-unit">°C</span></p>
-        </div>
+
+          <div class="hero-weather-center">
+            <div class="weather-icon-wrapper">
+              <img id="weather-icon" src="" alt="Weather Icon" class="hero-icon" />
+            </div>
+            <span id="weather-condition" class="condition-pill">--</span>
+            <div class="temp-display">
+              <span id="temperature" class="temp-val">--</span><span id="unit-label" class="unit">°C</span>
+            </div>
+            <div class="temp-meta-row">
+              <button id="unit-toggle" class="btn-pill btn-glass unit-toggle-btn">Switch to °F</button>
+              <p class="feels-like">Feels like <span id="feels-like">--</span><span id="feels-unit">°C</span></p>
+            </div>
+          </div>
+        </section>
 
         <!-- Metrics Grid -->
-        <div class="metrics-grid">
-          <div class="metric-box">
-            <span class="metric-label">Humidity</span>
-            <span id="humidity" class="metric-value">--%</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-label">Wind Speed</span>
-            <span id="wind-speed" class="metric-value">-- m/s</span>
-            <div class="wind-dir-wrapper">
-              <span id="wind-dir" class="metric-subvalue">--</span>
-              <span id="wind-arrow" class="wind-arrow">↑</span>
+        <section class="metrics-section card-glass card-anim" style="--anim-delay:0.12s">
+          <h3 class="section-heading">📊 Conditions</h3>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-emoji">💧</span>
+              <span class="metric-label">Humidity</span>
+              <span id="humidity" class="metric-value">--%</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji">💨</span>
+              <span class="metric-label">Wind</span>
+              <span id="wind-speed" class="metric-value">-- m/s</span>
+              <div class="wind-dir-wrapper">
+                <span id="wind-dir" class="metric-subvalue">--</span>
+                <span id="wind-arrow" class="wind-arrow">↑</span>
+              </div>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji">🌡️</span>
+              <span class="metric-label">Pressure</span>
+              <span id="pressure" class="metric-value">-- hPa</span>
+              <span id="pressure-trend" class="metric-subvalue">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji">👁️</span>
+              <span class="metric-label">Visibility</span>
+              <span id="visibility" class="metric-value">-- km</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji">☀️</span>
+              <span class="metric-label">UV Index</span>
+              <span id="uv-index" class="metric-value">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji">🌿</span>
+              <span class="metric-label">Dew Point</span>
+              <span id="dew-point" class="metric-value">--°C</span>
             </div>
           </div>
-          <div class="metric-box">
-            <span class="metric-label">Pressure</span>
-            <span id="pressure" class="metric-value">-- hPa</span>
-            <span id="pressure-trend" class="metric-subvalue">--</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-label">Visibility</span>
-            <span id="visibility" class="metric-value">-- km</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-label">UV Index</span>
-            <span id="uv-index" class="metric-value">--</span>
-          </div>
-          <div class="metric-box">
-            <span class="metric-label">Dew Point</span>
-            <span id="dew-point" class="metric-value">--°C</span>
-          </div>
-        </div>
+        </section>
 
         <!-- Activity Advisor -->
-        <div id="activity-advisor-container" class="activity-advisor-card">
+        <div id="activity-advisor-container" class="activity-advisor-card card-glass card-anim" style="--anim-delay:0.18s">
           <div class="advisor-header">
             <span class="advisor-icon">💡</span>
             <span class="advisor-title">Smart Activity Advisor</span>
           </div>
-          <p id="activity-advice" class="activity-advice">Loading recommendations...</p>
+          <p id="activity-advice" class="activity-advice">Loading recommendations…</p>
         </div>
 
-        <!-- Sunrise & Sunset Timeline Arc -->
-        <div id="sun-timeline" class="sun-timeline-container">
+        <!-- Sun Timeline Arc -->
+        <div id="sun-timeline" class="sun-timeline-container card-glass card-anim" style="--anim-delay:0.24s">
           <div class="sun-header">
-            <span class="sun-label">Sun Position & Daylight</span>
+            <span class="sun-label">☀️ Sun Position &amp; Daylight</span>
             <span id="daylight-duration" class="daylight-duration">--h --m daylight</span>
           </div>
           <div class="sun-arc-wrapper">
-            <svg class="sun-arc-svg" viewBox="0 0 300 110">
-              <path class="sun-arc-bg" d="M 30,95 A 120,70 0 0,1 270,95" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" stroke-dasharray="4,4" />
-              <line x1="15" y1="95" x2="285" y2="95" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
-              <circle id="sun-marker" cx="30" cy="95" r="7" fill="#fbbf24" style="filter: drop-shadow(0 0 8px #f59e0b);" />
+            <svg class="sun-arc-svg" viewBox="0 0 300 120">
+              <defs>
+                <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#f59e0b" />
+                  <stop offset="50%" stop-color="#fb923c" />
+                  <stop offset="100%" stop-color="#a78bfa" />
+                </linearGradient>
+              </defs>
+              <path class="sun-arc-bg" d="M 20,100 A 130,80 0 0,1 280,100" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-dasharray="6,4" />
+              <path class="sun-arc-fill" d="M 20,100 A 130,80 0 0,1 280,100" fill="none" stroke="url(#arcGrad)" stroke-width="3" stroke-linecap="round" opacity="0.5" />
+              <line x1="10" y1="100" x2="290" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+              <circle id="sun-marker" cx="20" cy="100" r="9" fill="#fbbf24" style="filter: drop-shadow(0 0 12px #f59e0b) drop-shadow(0 0 4px #fbbf24);" />
             </svg>
           </div>
           <div class="sun-times-row">
             <div class="sun-time-box">
-              <span class="sun-sublabel">Sunrise</span>
+              <span class="sun-sublabel">🌅 Sunrise</span>
               <span id="sunrise-time" class="sun-val">--:--</span>
             </div>
-            <div class="sun-time-box" style="text-align: right;">
-              <span class="sun-sublabel">Sunset</span>
+            <div class="sun-time-box" style="text-align:right">
+              <span class="sun-sublabel">🌇 Sunset</span>
               <span id="sunset-time" class="sun-val">--:--</span>
             </div>
           </div>
         </div>
 
         <!-- Air Quality Index -->
-        <div id="aqi-container" class="aqi-container hidden">
+        <div id="aqi-container" class="aqi-container card-glass card-anim hidden" style="--anim-delay:0.3s">
           <div class="aqi-header">
-            <span class="aqi-label">Air Quality Index</span>
+            <span class="aqi-label">🌬️ Air Quality Index</span>
             <div class="aqi-value-display">
               <div class="aqi-main-value">
                 <span id="aqi-exact" class="aqi-exact">--</span>
@@ -216,113 +253,124 @@
             </div>
           </div>
         </div>
-      </section>
 
-      <!-- Hourly Forecast -->
-      <section class="hourly-forecast-section">
-        <h3>Next 12 Hours</h3>
-        <div id="hourly-forecast" class="hourly-scroll"></div>
-      </section>
+      </aside>
+      <!-- =================== END SIDEBAR =================== -->
 
-      <!-- 5-Day Forecast -->
-      <section class="forecast-section">
-        <h3>5-Day Forecast</h3>
-        <div id="forecast-cards" class="forecast-grid">
-          <!-- Populated dynamically by script.js -->
-        </div>
-      </section>
+      <!-- =================== RIGHT MAIN CONTENT =================== -->
+      <div class="main-content">
 
-      <!-- Interactive Temperature Chart (Round 4) -->
-      <section class="chart-section">
-        <div class="chart-header">
-          <h3>5-Day Temperature Trend</h3>
-          <span id="chart-unit-badge" class="chart-unit-badge">°C</span>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="temp-chart"></canvas>
-        </div>
-      </section>
+        <!-- Hourly Forecast -->
+        <section class="hourly-forecast-section card-glass card-anim" style="--anim-delay:0.08s">
+          <h3 class="section-heading">🕐 Next 12 Hours</h3>
+          <div id="hourly-forecast" class="hourly-scroll"></div>
+        </section>
 
-      <!-- Side-by-Side City Comparison (Round 5) -->
-      <section class="compare-section">
-        <div class="compare-header">
-          <h3>⚖️ Side-by-Side City Comparison</h3>
-          <p class="compare-subtext">Compare real-time weather against another city</p>
-        </div>
-        <form id="compare-form" class="compare-form">
-          <input
-            type="text"
-            id="compare-input"
-            placeholder="Enter second city to compare (e.g. London, Tokyo, Sydney)..."
-            required
-          />
-          <button type="submit" id="compare-btn">Compare</button>
-        </form>
-        <div id="compare-container" class="compare-container hidden">
-          <div id="compare-card-primary" class="compare-card"></div>
-          <div class="compare-badge-vs">VS</div>
-          <div id="compare-card-secondary" class="compare-card"></div>
-        </div>
-      </section>
-
-      <!-- Interactive Precipitation & Weather Radar (Round 6) -->
-      <section class="radar-section">
-        <div class="radar-header">
-          <div>
-            <h3>📡 Interactive Precipitation & Weather Radar</h3>
-            <p class="radar-subtext">Live map centered on location</p>
+        <!-- 5-Day Forecast -->
+        <section class="forecast-section card-glass card-anim" style="--anim-delay:0.14s">
+          <h3 class="section-heading">📅 5-Day Forecast</h3>
+          <div id="forecast-cards" class="forecast-grid">
+            <!-- Populated by script.js -->
           </div>
-          <div class="radar-layer-toggles">
-            <button class="radar-toggle-btn active" data-layer="precipitation">Rain Radar</button>
-            <button class="radar-toggle-btn" data-layer="temp">Temperature</button>
-            <button class="radar-toggle-btn" data-layer="clouds">Clouds</button>
-            <button class="radar-toggle-btn" data-layer="wind">Wind</button>
-          </div>
-        </div>
-        <div class="radar-map-wrapper">
-          <div id="radar-map" class="radar-map"></div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Pollen & Health Risk Forecast (Round 6) -->
-      <section class="health-section">
-        <div class="health-header">
-          <div>
-            <h3>🌿 Pollen & Health Forecast</h3>
-            <p class="health-subtext">Allergy risk levels & respiratory recommendations</p>
+        <!-- Temperature Chart -->
+        <section class="chart-section card-glass card-anim" style="--anim-delay:0.2s">
+          <div class="chart-header">
+            <h3 class="section-heading">📈 5-Day Temperature Trend</h3>
+            <span id="chart-unit-badge" class="chart-unit-badge">°C</span>
           </div>
-          <span id="pollen-overall-status" class="pollen-status-badge">Moderate Risk</span>
-        </div>
-        <div class="pollen-grid">
-          <div class="pollen-card">
-            <div class="pollen-top">
-              <span class="pollen-label">🌳 Tree Pollen</span>
-              <span id="pollen-tree-val" class="pollen-val">Low</span>
+          <div class="chart-wrapper">
+            <canvas id="temp-chart"></canvas>
+          </div>
+        </section>
+
+        <!-- Side-by-Side City Comparison -->
+        <section class="compare-section card-glass card-anim" style="--anim-delay:0.26s">
+          <div class="compare-header">
+            <h3 class="section-heading">⚖️ City Comparison</h3>
+            <p class="compare-subtext">Compare real-time weather against another city</p>
+          </div>
+          <form id="compare-form" class="compare-form">
+            <div class="compare-input-wrapper">
+              <input
+                type="text"
+                id="compare-input"
+                placeholder="Enter city to compare e.g. London, Tokyo…"
+                required
+              />
             </div>
-            <div class="pollen-bar-bg"><div id="pollen-tree-bar" class="pollen-bar-fill" style="width: 25%;"></div></div>
+            <button type="submit" id="compare-btn" class="btn-pill btn-primary">Compare</button>
+          </form>
+          <div id="compare-container" class="compare-container hidden">
+            <div id="compare-card-primary" class="compare-card"></div>
+            <div class="compare-badge-vs">VS</div>
+            <div id="compare-card-secondary" class="compare-card"></div>
           </div>
-          <div class="pollen-card">
-            <div class="pollen-top">
-              <span class="pollen-label">🌾 Grass Pollen</span>
-              <span id="pollen-grass-val" class="pollen-val">Moderate</span>
+        </section>
+
+        <!-- Radar Map -->
+        <section class="radar-section card-glass card-anim" style="--anim-delay:0.32s">
+          <div class="radar-header">
+            <div>
+              <h3 class="section-heading">📡 Weather Radar</h3>
+              <p class="radar-subtext">Live map centered on your location</p>
             </div>
-            <div class="pollen-bar-bg"><div id="pollen-grass-bar" class="pollen-bar-fill" style="width: 55%;"></div></div>
-          </div>
-          <div class="pollen-card">
-            <div class="pollen-top">
-              <span class="pollen-label">🌼 Weed Pollen</span>
-              <span id="pollen-weed-val" class="pollen-val">Low</span>
+            <div class="radar-layer-toggles">
+              <button class="radar-toggle-btn active" data-layer="precipitation">🌧 Rain</button>
+              <button class="radar-toggle-btn" data-layer="temp">🌡 Temp</button>
+              <button class="radar-toggle-btn" data-layer="clouds">☁️ Clouds</button>
+              <button class="radar-toggle-btn" data-layer="wind">💨 Wind</button>
             </div>
-            <div class="pollen-bar-bg"><div id="pollen-weed-bar" class="pollen-bar-fill" style="width: 20%;"></div></div>
           </div>
-        </div>
-        <div id="health-advice-box" class="health-advice-box">
-          <strong>💡 Health & Allergy Guidance</strong>
-          <p id="health-advice-text">Allergy levels are moderate. Sensitive individuals should consider wearing sunglasses or keeping windows closed during peak afternoon hours.</p>
-        </div>
-      </section>
-    </main>
-  </div>
+          <div class="radar-map-wrapper">
+            <div id="radar-map" class="radar-map"></div>
+          </div>
+        </section>
+
+        <!-- Pollen & Health -->
+        <section class="health-section card-glass card-anim" style="--anim-delay:0.38s">
+          <div class="health-header">
+            <div>
+              <h3 class="section-heading">🌿 Pollen &amp; Health Forecast</h3>
+              <p class="health-subtext">Allergy risk levels &amp; respiratory recommendations</p>
+            </div>
+            <span id="pollen-overall-status" class="pollen-status-badge">Moderate Risk</span>
+          </div>
+          <div class="pollen-grid">
+            <div class="pollen-card pollen-tree">
+              <div class="pollen-top">
+                <span class="pollen-label">🌳 Tree Pollen</span>
+                <span id="pollen-tree-val" class="pollen-val">Low</span>
+              </div>
+              <div class="pollen-bar-bg"><div id="pollen-tree-bar" class="pollen-bar-fill pollen-bar-tree" style="width:25%"></div></div>
+            </div>
+            <div class="pollen-card pollen-grass">
+              <div class="pollen-top">
+                <span class="pollen-label">🌾 Grass Pollen</span>
+                <span id="pollen-grass-val" class="pollen-val">Moderate</span>
+              </div>
+              <div class="pollen-bar-bg"><div id="pollen-grass-bar" class="pollen-bar-fill pollen-bar-grass" style="width:55%"></div></div>
+            </div>
+            <div class="pollen-card pollen-weed">
+              <div class="pollen-top">
+                <span class="pollen-label">🌼 Weed Pollen</span>
+                <span id="pollen-weed-val" class="pollen-val">Low</span>
+              </div>
+              <div class="pollen-bar-bg"><div id="pollen-weed-bar" class="pollen-bar-fill pollen-bar-weed" style="width:20%"></div></div>
+            </div>
+          </div>
+          <div id="health-advice-box" class="health-advice-box">
+            <strong>💡 Health &amp; Allergy Guidance</strong>
+            <p id="health-advice-text">Allergy levels are moderate. Sensitive individuals should consider wearing sunglasses or keeping windows closed during peak afternoon hours.</p>
+          </div>
+        </section>
+
+      </div>
+      <!-- =================== END MAIN CONTENT =================== -->
+
+    </div>
+  </main>
 
   <!-- External Libraries & Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
