@@ -2,6 +2,9 @@
 
 A feature-packed, responsive weather dashboard built with vanilla JavaScript, HTML5, and CSS3. Powered by the OpenWeatherMap REST API with interactive Leaflet maps, Chart.js analytics, and PDF reporting.
 
+[![Checklist Status](https://img.shields.io/badge/Checklist-100%25%20Completed-brightgreen)](#-project-checklist--feature-status)
+*See full development roadmap in [CHECKLIST.md](CHECKLIST.md).*
+
 ---
 
 ## 📋 Project Checklist & Feature Status
