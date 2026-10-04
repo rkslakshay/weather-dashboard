@@ -640,10 +640,10 @@ function initRadarMap(lat, lon, cityName) {
       scrollWheelZoom: false
     }).setView([lat, lon], 8);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 18
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+      className: 'map-tiles-base'
     }).addTo(radarMap);
 
     const toggleBtns = document.querySelectorAll('.radar-toggle-btn');

@@ -1508,6 +1508,48 @@ body.weather-fog {
   z-index: 1;
 }
 
+/* Base Map Tiles Styling: Sleek dark map in dark theme, clean natural in light theme */
+.map-tiles-base {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+  transition: filter 0.3s ease;
+}
+
+[data-theme="light"] .map-tiles-base {
+  filter: none;
+}
+
+/* Styled Leaflet Controls & Attribution */
+.leaflet-container .leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.75) !important;
+  color: #94a3b8 !important;
+  font-size: 0.72rem !important;
+  border-radius: 4px;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: #38bdf8 !important;
+}
+
+[data-theme="light"] .leaflet-container .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.85) !important;
+  color: #475569 !important;
+}
+
+[data-theme="light"] .leaflet-container .leaflet-control-attribution a {
+  color: #0284c7 !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--card-border) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: rgba(56, 189, 248, 0.25) !important;
+  color: var(--accent-color) !important;
+}
+
 /* Pollen & Health Cards */
 .pollen-status-badge {
   font-size: 0.8rem;
