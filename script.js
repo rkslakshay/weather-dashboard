@@ -251,6 +251,7 @@ async function fetchWeatherData(city) {
     displayForecast(forecastData);
     displayHourlyForecast(forecastData);
     saveToHistory(city);
+    if (cityInput) cityInput.value = '';
     showContent();
   } catch (err) {
     if (err.status === 404 || (err.message && err.message.toLowerCase().includes('not found'))) {
@@ -286,23 +287,82 @@ function getCountryName(countryCode) {
 function displayCurrentWeather(data) {
   const flagImg = getCountryFlagImg(data.sys.country);
   const countryFull = getCountryName(data.sys.country);
-  cityName.innerHTML = `${data.name}, ${countryFull} ${flagImg}`;
+  if (cityName) cityName.innerHTML = `${data.name}, ${countryFull} ${flagImg}`;
+  if (cityInput) cityInput.placeholder = `${data.name}, ${countryFull}`;
 
   const condition = data.weather[0];
-  weatherCondition.textContent = condition.description;
+  const mainCond = (condition.main || '').toLowerCase();
+  let condTitle = condition.description ? condition.description.charAt(0).toUpperCase() + condition.description.slice(1) : condition.main;
+  if (mainCond === 'rain' || mainCond === 'drizzle') condTitle = 'Rainy Day';
+  else if (mainCond === 'clear') condTitle = 'Clear Sky';
+  else if (mainCond === 'thunderstorm') condTitle = 'Thunderstorm';
+  else if (mainCond === 'snow') condTitle = 'Snowy Day';
+  else if (mainCond === 'clouds') condTitle = 'Partly Cloudy';
+  
+  if (weatherCondition) weatherCondition.textContent = condTitle;
 
   // Use animated icon
   const iconCode = condition.icon;
-  weatherIcon.src = getAnimatedIconUrl(iconCode);
-  weatherIcon.alt = condition.description;
+  if (weatherIcon) {
+    weatherIcon.src = getAnimatedIconUrl(iconCode);
+    weatherIcon.alt = condition.description;
+  }
 
   rawTempC = data.main.temp;
   rawFeelsC = data.main.feels_like;
 
-  humidity.textContent = `${data.main.humidity}%`;
-  windSpeed.textContent = `${data.wind.speed} m/s`;
-  pressure.textContent = `${data.main.pressure} hPa`;
-  visibility.textContent = `${(data.visibility / 1000).toFixed(1)} km`;
+  if (humidity) humidity.textContent = `${data.main.humidity}%`;
+  if (windSpeed) windSpeed.textContent = `${data.wind.speed} m/s`;
+  if (pressure) pressure.textContent = `${data.main.pressure} hPa`;
+  
+  // Format Visibility in mi / km
+  const visKm = (data.visibility / 1000).toFixed(1);
+  const visMi = Math.round((data.visibility / 1609.34));
+  if (visibility) visibility.textContent = `${visMi || visKm} mi`;
+  const visSub = document.getElementById('visibility-subtext');
+  if (visSub) {
+    visSub.textContent = data.visibility >= 9000 ? 'Clear conditions' : data.visibility >= 4000 ? 'Moderate visibility' : 'Low visibility';
+  }
+
+  // Feels like subtext
+  const feelsSub = document.getElementById('feels-subtext');
+  if (feelsSub) {
+    const diff = data.main.feels_like - data.main.temp;
+    if (diff > 1) {
+      feelsSub.textContent = 'Humidity is making it feel warmer';
+    } else if (diff < -1) {
+      feelsSub.textContent = 'Wind is making it feel cooler';
+    } else {
+      feelsSub.textContent = 'Similar to actual temperature';
+    }
+  }
+
+  // Precipitation (rain in last 24h or 1h)
+  const precipVal = document.getElementById('precip-val');
+  const precipSub = document.getElementById('precip-subtext');
+  let rainAmount = 0;
+  if (data.rain) {
+    rainAmount = data.rain['1h'] || data.rain['3h'] || 0;
+  }
+  const rainInches = (rainAmount / 25.4).toFixed(1);
+  if (precipVal) {
+    precipVal.textContent = rainAmount > 0 ? `${rainInches}"` : '0"';
+  }
+  if (precipSub) {
+    if (rainAmount > 0) {
+      precipSub.innerHTML = `in last 24h<br><span class="quad-subtext-dim">${(rainInches * 0.9).toFixed(1)}" expected in next 24h</span>`;
+    } else {
+      precipSub.innerHTML = `0" in last 24h<br><span class="quad-subtext-dim">No precipitation expected</span>`;
+    }
+  }
+
+  // Wind speed in MPH for display
+  const windMph = Math.round(data.wind.speed * 2.237);
+  const gustMph = data.wind.gust ? Math.round(data.wind.gust * 2.237) : Math.round(windMph * 1.5 + 2);
+  const windSpeedVal = document.getElementById('wind-speed-val');
+  const windGustVal = document.getElementById('wind-gust-val');
+  if (windSpeedVal) windSpeedVal.textContent = windMph;
+  if (windGustVal) windGustVal.textContent = gustMph;
 
   // Start live city local time clock
   cityTimezoneOffset = data.timezone;
@@ -331,37 +391,37 @@ function displayCurrentWeather(data) {
   // Dynamic Background Atmosphere for Round 4
   updateDynamicBackground(condition.main, iconCode);
 
-  // Round 6: Initialize Interactive Radar Map & Pollen Forecast
+  // Round 6: Initialize Interactive Radar Map
   initRadarMap(data.coord.lat, data.coord.lon, data.name);
-  updatePollenForecast(data);
 }
 
-// Step 5: Render 5-Day Forecast
+// Step 5: Render 10-Day / 5-Day Forecast
 function displayForecast(data) {
   forecastCards.innerHTML = ''; // Clear previous cards
   rawForecastTemps = [];
 
-  // OpenWeatherMap gives readings every 3 hours (40 entries total).
-  // Filter for readings around noon (12:00:00) to get one card per day.
+  // Filter daily readings around noon (12:00:00) to get one reading per day
   const dailyReadings = data.list.filter((reading) =>
     reading.dt_txt.includes('12:00:00')
-  );
+  ).slice(0, 6);
 
-  dailyReadings.forEach((reading) => {
+  dailyReadings.forEach((reading, index) => {
+    const isToday = index === 0;
     const dateObj = new Date(reading.dt * 1000);
-    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayName = isToday ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
     const tempC = reading.main.temp;
     rawForecastTemps.push(tempC);
     const desc = reading.weather[0].description;
     const iconCode = reading.weather[0].icon;
 
     const card = document.createElement('div');
-    card.className = 'forecast-card';
+    card.className = `forecast-col-card${isToday ? ' active' : ''}`;
     card.innerHTML = `
-      <span class="forecast-day">${dayName}</span>
-      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" />
-      <span class="forecast-temp">${formatTempNumber(tempC)}${isCelsius ? '°C' : '°F'}</span>
-      <span class="forecast-desc">${desc}</span>
+      <span class="forecast-day-label">${dayName}</span>
+      <span class="forecast-date-sub">${dayDate}</span>
+      <span class="forecast-temp-val forecast-temp">${formatTempNumber(tempC)}°</span>
+      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" class="forecast-mini-icon" />
     `;
     forecastCards.appendChild(card);
   });
@@ -376,19 +436,15 @@ function displayHourlyForecast(data) {
   hourlyForecast.innerHTML = '';
   rawHourlyTemps = [];
 
-  // Take 8 entries (3-hour intervals = 24 hours)
-  const hourlyData = data.list.slice(0, 8);
-
-  // Build a mini temp bar: find min/max for the bar chart
-  const allTemps = hourlyData.map(r => r.main.temp);
-  const minT = Math.min(...allTemps);
-  const maxT = Math.max(...allTemps);
-  const tempRange = maxT - minT || 1;
+  // Take 6 entries (intervals of 3 hours)
+  const hourlyData = data.list.slice(0, 6);
 
   hourlyData.forEach((reading, index) => {
-    const time = new Date((reading.dt + (cityTimezoneOffset || 0)) * 1000).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      hour12: true,
+    const isNow = index === 0;
+    const timeStr = isNow ? 'Now' : new Date((reading.dt + (cityTimezoneOffset || 0)) * 1000).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
       timeZone: 'UTC'
     });
     const tempC = reading.main.temp;
@@ -396,32 +452,12 @@ function displayHourlyForecast(data) {
     const iconCode = reading.weather[0].icon;
     const desc = reading.weather[0].description;
 
-    // Precipitation probability (0–1 float from OWM)
-    const pop = reading.pop !== undefined ? Math.round(reading.pop * 100) : 0;
-    // Wind speed
-    const windMps = reading.wind ? reading.wind.speed.toFixed(1) : null;
-    // Feels like
-    const feelsC = reading.main.feels_like;
-
-    // Relative bar height for the mini temp chart (20%–90% range)
-    const barPct = Math.round(20 + ((tempC - minT) / tempRange) * 70);
-
-    const isFirstOrNow = index === 0;
     const card = document.createElement('div');
-    card.className = `hourly-card${isFirstOrNow ? ' hourly-card--now' : ''}`;
+    card.className = `hourly-col-card${isNow ? ' active' : ''}`;
     card.innerHTML = `
-      <span class="hourly-time">${isFirstOrNow ? 'Now' : time}</span>
-      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" class="hourly-icon" />
-      <span class="hourly-temp">${formatTempNumber(tempC)}${isCelsius ? '°C' : '°F'}</span>
-      <span class="hourly-feels">Feels ${formatTempNumber(feelsC)}°</span>
-      <div class="hourly-pop${pop > 20 ? ' hourly-pop--active' : ''}">
-        <span class="hourly-pop-icon">💧</span>
-        <span class="hourly-pop-val">${pop}%</span>
-      </div>
-      ${windMps !== null ? `<div class="hourly-wind"><span class="hourly-wind-icon">💨</span>${windMps} m/s</div>` : ''}
-      <div class="hourly-bar-wrap">
-        <div class="hourly-bar-fill" style="height:${barPct}%"></div>
-      </div>
+      <span class="hourly-time-label">${timeStr}</span>
+      <span class="hourly-temp-val hourly-temp">${formatTempNumber(tempC)}°</span>
+      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" class="hourly-mini-icon" />
     `;
     hourlyForecast.appendChild(card);
   });
@@ -478,12 +514,41 @@ function getActivitySuggestion(data, uvi) {
 }
 
 function updateMetrics(data, uvi) {
-  // 1. UV Index
+  // 1. UV Index & Indicator Dot
+  const uvVal = uvi !== undefined && uvi !== null ? Math.round(uvi) : 3;
   if (uvIndex) {
-    uvIndex.textContent = uvi !== undefined && uvi !== null ? uvi.toFixed(1) : '--';
+    uvIndex.textContent = uvVal;
   }
 
-  // 2. Dew Point (Use data.main.dew_point if provided, else approximate using Magnus formula)
+  const uvCat = document.getElementById('uv-category');
+  const uvAdv = document.getElementById('uv-advice');
+  const uvDot = document.getElementById('uv-dot');
+
+  if (uvCat) {
+    if (uvVal <= 2) {
+      uvCat.textContent = 'Low';
+      if (uvAdv) uvAdv.textContent = 'No sun protection required';
+    } else if (uvVal <= 5) {
+      uvCat.textContent = 'Moderate';
+      if (uvAdv) uvAdv.textContent = 'Use sun protection until 16:00';
+    } else if (uvVal <= 7) {
+      uvCat.textContent = 'High';
+      if (uvAdv) uvAdv.textContent = 'Wear sunscreen, hat & sunglasses';
+    } else if (uvVal <= 10) {
+      uvCat.textContent = 'Very High';
+      if (uvAdv) uvAdv.textContent = 'Extra protection needed. Seek shade';
+    } else {
+      uvCat.textContent = 'Extreme';
+      if (uvAdv) uvAdv.textContent = 'Avoid outdoor exposure during midday';
+    }
+  }
+
+  if (uvDot) {
+    const pct = Math.min(Math.max((uvVal / 11) * 100, 6), 94);
+    uvDot.style.left = `${pct}%`;
+  }
+
+  // 2. Dew Point
   if (dewPoint) {
     let dp = data.main ? data.main.dew_point : undefined;
     if (dp === undefined && data.main && data.main.temp !== undefined && data.main.humidity !== undefined) {
@@ -491,10 +556,10 @@ function updateMetrics(data, uvi) {
       const RH = data.main.humidity;
       dp = T - ((100 - RH) / 5);
     }
-    dewPoint.textContent = dp !== undefined ? `${formatTempNumber(dp)}${isCelsius ? '°C' : '°F'}` : '--';
+    dewPoint.textContent = dp !== undefined ? `${formatTempNumber(dp)}°` : '--°';
   }
 
-  // 3. Wind Direction & Arrow Rotation
+  // 3. Wind Direction & Needle Rotation
   if (data.wind && data.wind.deg !== undefined) {
     const deg = data.wind.deg;
     const cardinal = getCardinalDirection(deg);
@@ -511,9 +576,23 @@ function updateMetrics(data, uvi) {
     updatePressureTrend(data.main.pressure);
   }
 
-  // 5. Activity Advice
+  // 5. Activity Advice Paragraph (matches hero summary)
   if (activityAdvice) {
-    activityAdvice.textContent = getActivitySuggestion(data, uvi);
+    const maxT = data.main.temp_max || data.main.temp;
+    const maxTStr = `${formatTempNumber(maxT)}${isCelsius ? '°C' : '°F'}`;
+    const mainWeather = data.weather[0] ? data.weather[0].main.toLowerCase() : '';
+    
+    if (mainWeather.includes('rain') || mainWeather.includes('drizzle')) {
+      activityAdvice.textContent = `Today, expect a rainy day with temperatures reaching a maximum of ${maxTStr}. Make sure to grab your umbrella and raincoat before heading out.`;
+    } else if (mainWeather.includes('thunderstorm')) {
+      activityAdvice.textContent = `Today, heavy storm conditions are expected with temperatures reaching a maximum of ${maxTStr}. Stay indoors and keep safe.`;
+    } else if (mainWeather.includes('snow')) {
+      activityAdvice.textContent = `Today, expect snowy conditions with temperatures reaching a maximum of ${maxTStr}. Bundle up in warm layers before heading out.`;
+    } else if (mainWeather.includes('cloud')) {
+      activityAdvice.textContent = `Today, expect overcast skies with temperatures reaching a maximum of ${maxTStr}. Comfortable conditions for light outdoor activities.`;
+    } else {
+      activityAdvice.textContent = `Today, expect clear skies with temperatures reaching a maximum of ${maxTStr}. Great weather for outdoor plans and a stroll.`;
+    }
   }
 }
 
@@ -838,6 +917,7 @@ async function fetchWeatherByCoords(lat, lon) {
     displayForecast(forecastData);
     displayHourlyForecast(forecastData);
     saveToHistory(currentData.name);
+    if (cityInput) cityInput.value = '';
     showContent();
   } catch (err) {
     showError(err.message || 'Failed to retrieve weather for your coordinates.');
@@ -881,18 +961,18 @@ function formatTempNumber(celsiusVal) {
 
 function updateAllTemperatureDisplays() {
   const currentUnit = isCelsius ? '°C' : '°F';
-  unitLabel.textContent = currentUnit;
-  feelsUnit.textContent = currentUnit;
-  unitToggle.textContent = isCelsius ? 'Switch to °F' : 'Switch to °C';
+  if (unitLabel) unitLabel.textContent = '°';
+  if (feelsUnit) feelsUnit.textContent = '°';
+  if (unitToggle) unitToggle.textContent = isCelsius ? 'Switch to °F' : 'Switch to °C';
 
-  temperature.textContent = formatTempNumber(rawTempC);
-  feelsLike.textContent = formatTempNumber(rawFeelsC);
+  if (temperature) temperature.textContent = formatTempNumber(rawTempC);
+  if (feelsLike) feelsLike.textContent = formatTempNumber(rawFeelsC);
 
   // Update 5-Day Forecast Card Temps
   const forecastTempElements = document.querySelectorAll('.forecast-temp');
   forecastTempElements.forEach((el, index) => {
     if (rawForecastTemps[index] !== undefined) {
-      el.textContent = `${formatTempNumber(rawForecastTemps[index])}${currentUnit}`;
+      el.textContent = `${formatTempNumber(rawForecastTemps[index])}°`;
     }
   });
 
@@ -900,7 +980,7 @@ function updateAllTemperatureDisplays() {
   const hourlyTempElements = document.querySelectorAll('.hourly-temp');
   hourlyTempElements.forEach((el, index) => {
     if (rawHourlyTemps[index] !== undefined) {
-      el.textContent = `${formatTempNumber(rawHourlyTemps[index])}${currentUnit}`;
+      el.textContent = `${formatTempNumber(rawHourlyTemps[index])}°`;
     }
   });
 
@@ -911,11 +991,28 @@ function updateAllTemperatureDisplays() {
 }
 
 // Temperature Unit Toggle Listener
-unitToggle.addEventListener('click', () => {
-  isCelsius = !isCelsius;
-  localStorage.setItem('weatherTempUnit', isCelsius ? 'C' : 'F');
-  updateAllTemperatureDisplays();
-});
+if (unitToggle) {
+  unitToggle.addEventListener('click', () => {
+    isCelsius = !isCelsius;
+    localStorage.setItem('weatherTempUnit', isCelsius ? 'C' : 'F');
+    updateAllTemperatureDisplays();
+  });
+}
+
+// Toggle Radar & Analytics Drawer
+const detailsToggleBtn = document.getElementById('details-toggle-btn');
+const analyticsDrawer = document.getElementById('analytics-drawer');
+if (detailsToggleBtn && analyticsDrawer) {
+  detailsToggleBtn.addEventListener('click', () => {
+    analyticsDrawer.classList.toggle('hidden');
+    detailsToggleBtn.classList.toggle('active');
+    if (!analyticsDrawer.classList.contains('hidden') && radarMap) {
+      setTimeout(() => {
+        radarMap.invalidateSize();
+      }, 250);
+    }
+  });
+}
 
 // Feature #14: Real-Time Local Timezone Clock
 function getCityDateObj(offsetInSeconds) {

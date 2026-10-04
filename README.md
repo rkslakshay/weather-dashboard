@@ -19,7 +19,8 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
 - 🌡️ **Comprehensive Meteorology**: Live temperature, feels-like, humidity, wind speed, barometric pressure, visibility, UV index, and dew point.
 - 🧭 **Atmospheric Dynamics**: Rotating wind direction compass, pressure trend tracker (Rising/Falling/Steady), and dynamic weather activity advisor.
 - 📈 **Visual Analytics & Radar**: Smooth Chart.js temperature curve, animated sun progression arc, local timezone clock, and an interactive Leaflet radar map with Precipitation, Temperature, Clouds, and Wind layers.
-- 🌿 **Health & Allergy Forecast**: Tree, grass, and weed pollen risk indicators alongside EPA PM2.5-based Air Quality Index (AQI).
+- 🌬️ **Air Quality Index (AQI)**: Real-time EPA-standard PM2.5 air quality tracking with color-coded fill bar and category badge.
+- ⏱️ **AccuWeather-style Hourly Forecast**: Next 24-hour strip showing icon, temperature, feels-like, precipitation probability, and wind speed per slot.
 - ⚖️ **Multi-City Comparison & PDF Export**: Compare two cities side-by-side and export executive reports in PDF with a single click.
 
 ---
@@ -30,7 +31,7 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
 - **Logic**: Vanilla ES6+ JavaScript (Async/Await, Cache Storage, Service Worker API, Geolocation API, Canvas)
 - **Security & Proxy**: Serverless Node.js API Proxy (`api/weather.js`) with security headers in `vercel.json`
 - **Data & APIs**: OpenWeatherMap API (Current Weather, 5-Day Forecast, Air Pollution, Geo Direct)
-- **Mapping & Charts**: Leaflet.js, CartoDB Dark Matter tiles, Chart.js
+- **Mapping & Charts**: Leaflet.js, OpenStreetMap tiles, Chart.js
 - **Exporting**: html2pdf.js / html2canvas
 - **CI/CD**: GitHub Actions automated syntax check and GitHub Pages deployment workflow
 
