@@ -182,14 +182,11 @@ async function fetchWeatherData(city) {
   }
 }
 
-// Country Flag Emoji & Full Country Name Helpers
-function getCountryFlagEmoji(countryCode) {
-  if (!countryCode || countryCode.length !== 2) return '🌐';
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
+// FlagCDN Image Helper for 100% Cross-Platform Windows & OS Flag Support
+function getCountryFlagImg(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return '';
+  const code = countryCode.toLowerCase();
+  return `<img src="https://flagcdn.com/24x18/${code}.png" alt="${countryCode}" class="flag-icon" />`;
 }
 
 function getCountryName(countryCode) {
@@ -204,9 +201,9 @@ function getCountryName(countryCode) {
 
 // Step 4: Render Current Weather to the DOM
 function displayCurrentWeather(data) {
-  const flag = getCountryFlagEmoji(data.sys.country);
+  const flagImg = getCountryFlagImg(data.sys.country);
   const countryFull = getCountryName(data.sys.country);
-  cityName.textContent = `${data.name}, ${countryFull} ${flag}`;
+  cityName.innerHTML = `${data.name}, ${countryFull} ${flagImg}`;
 
   const condition = data.weather[0];
   weatherCondition.textContent = condition.description;
@@ -250,6 +247,10 @@ function displayCurrentWeather(data) {
 
   // Dynamic Background Atmosphere for Round 4
   updateDynamicBackground(condition.main, iconCode);
+
+  // Round 6: Initialize Interactive Radar Map & Pollen Forecast
+  initRadarMap(data.coord.lat, data.coord.lon, data.name);
+  updatePollenForecast(data);
 }
 
 // Step 5: Render 5-Day Forecast
@@ -542,6 +543,158 @@ function renderForecastChart(data) {
   });
 }
 
+// Round 6 Helper: Interactive Radar & Weather Map (Leaflet.js)
+let radarMap = null;
+let radarOverlayLayer = null;
+let radarMarker = null;
+let activeRadarLayer = 'precipitation';
+
+function initRadarMap(lat, lon, cityName) {
+  const mapElement = document.getElementById('radar-map');
+  if (!mapElement || typeof L === 'undefined') return;
+
+  if (!radarMap) {
+    radarMap = L.map('radar-map', {
+      zoomControl: true,
+      scrollWheelZoom: false
+    }).setView([lat, lon], 8);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 18
+    }).addTo(radarMap);
+
+    const toggleBtns = document.querySelectorAll('.radar-toggle-btn');
+    toggleBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        toggleBtns.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeRadarLayer = btn.dataset.layer;
+        updateRadarTileLayer(activeRadarLayer);
+      });
+    });
+  } else {
+    radarMap.setView([lat, lon], 8);
+  }
+
+  if (radarMarker) {
+    radarMarker.setLatLng([lat, lon]).setPopupContent(`<b>${cityName}</b><br>Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)}`);
+  } else {
+    radarMarker = L.marker([lat, lon]).addTo(radarMap).bindPopup(`<b>${cityName}</b><br>Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)}`);
+  }
+
+  updateRadarTileLayer(activeRadarLayer);
+
+  setTimeout(() => {
+    radarMap.invalidateSize();
+  }, 300);
+}
+
+function updateRadarTileLayer(layerType) {
+  if (!radarMap) return;
+
+  if (radarOverlayLayer) {
+    radarMap.removeLayer(radarOverlayLayer);
+  }
+
+  const layerMap = {
+    precipitation: 'precipitation_new',
+    temp: 'temp_new',
+    clouds: 'clouds_new',
+    wind: 'wind_new'
+  };
+
+  const owmLayer = layerMap[layerType] || 'precipitation_new';
+  const tileUrl = `https://tile.openweathermap.org/map/${owmLayer}/{z}/{x}/{y}.png?appid=${API_KEY}`;
+
+  radarOverlayLayer = L.tileLayer(tileUrl, {
+    opacity: 0.65,
+    maxZoom: 18
+  }).addTo(radarMap);
+}
+
+// Round 6 Helper: Pollen & Allergy Health Risk Forecast
+function updatePollenForecast(data) {
+  const tempC = data.main.temp;
+  const wind = data.wind.speed;
+  const isPrecip = data.weather.some(w => ['Rain', 'Drizzle', 'Thunderstorm', 'Snow'].includes(w.main));
+
+  const month = new Date().getMonth();
+  let treeVal = 'Low', treeBar = 20;
+  let grassVal = 'Low', grassBar = 25;
+  let weedVal = 'Low', weedBar = 15;
+
+  if (isPrecip) {
+    treeVal = 'Very Low'; treeBar = 10;
+    grassVal = 'Low'; grassBar = 15;
+    weedVal = 'Very Low'; weedBar = 10;
+  } else {
+    if (month >= 2 && month <= 5) {
+      treeVal = tempC >= 18 ? 'High' : 'Moderate';
+      treeBar = tempC >= 18 ? 85 : 55;
+    } else if (month >= 5 && month <= 7) {
+      grassVal = tempC >= 22 ? 'Very High' : 'Moderate';
+      grassBar = tempC >= 22 ? 90 : 60;
+    } else if (month >= 7 && month <= 10) {
+      weedVal = wind >= 4 ? 'High' : 'Moderate';
+      weedBar = wind >= 4 ? 80 : 50;
+    } else {
+      treeVal = 'Low'; treeBar = 20;
+      grassVal = 'Low'; grassBar = 25;
+      weedVal = 'Low'; weedBar = 15;
+    }
+  }
+
+  const pollenTreeVal = document.getElementById('pollen-tree-val');
+  const pollenTreeBar = document.getElementById('pollen-tree-bar');
+  const pollenGrassVal = document.getElementById('pollen-grass-val');
+  const pollenGrassBar = document.getElementById('pollen-grass-bar');
+  const pollenWeedVal = document.getElementById('pollen-weed-val');
+  const pollenWeedBar = document.getElementById('pollen-weed-bar');
+  const pollenOverallStatus = document.getElementById('pollen-overall-status');
+  const healthAdviceText = document.getElementById('health-advice-text');
+
+  if (pollenTreeVal) pollenTreeVal.textContent = treeVal;
+  if (pollenTreeBar) pollenTreeBar.style.width = `${treeBar}%`;
+  if (pollenGrassVal) pollenGrassVal.textContent = grassVal;
+  if (pollenGrassBar) pollenGrassBar.style.width = `${grassBar}%`;
+  if (pollenWeedVal) pollenWeedVal.textContent = weedVal;
+  if (pollenWeedBar) pollenWeedBar.style.width = `${weedBar}%`;
+
+  const maxBar = Math.max(treeBar, grassBar, weedBar);
+  if (pollenOverallStatus) {
+    if (maxBar >= 80) {
+      pollenOverallStatus.textContent = 'High Allergy Risk';
+      pollenOverallStatus.style.background = 'rgba(239, 68, 68, 0.2)';
+      pollenOverallStatus.style.borderColor = '#ef4444';
+      pollenOverallStatus.style.color = '#fca5a5';
+    } else if (maxBar >= 50) {
+      pollenOverallStatus.textContent = 'Moderate Allergy Risk';
+      pollenOverallStatus.style.background = 'rgba(251, 191, 36, 0.15)';
+      pollenOverallStatus.style.borderColor = 'rgba(251, 191, 36, 0.4)';
+      pollenOverallStatus.style.color = '#fbbf24';
+    } else {
+      pollenOverallStatus.textContent = 'Low Allergy Risk';
+      pollenOverallStatus.style.background = 'rgba(34, 197, 94, 0.15)';
+      pollenOverallStatus.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+      pollenOverallStatus.style.color = '#4ade80';
+    }
+  }
+
+  if (healthAdviceText) {
+    if (isPrecip) {
+      healthAdviceText.textContent = '🌧️ Recent precipitation has washed airborne pollen out of the air. Great conditions for allergy sufferers!';
+    } else if (maxBar >= 80) {
+      healthAdviceText.textContent = '⚠️ Elevated pollen counts detected! Sensitive individuals should limit outdoor exercise, keep windows closed, and wear sunglasses outdoors.';
+    } else if (maxBar >= 50) {
+      healthAdviceText.textContent = '🌼 Moderate pollen levels present. Consider taking antihistamines or showering after prolonged outdoor activity.';
+    } else {
+      healthAdviceText.textContent = '🌱 Low airborne pollen counts. Optimal conditions for outdoor sports, walks, and activities!';
+    }
+  }
+}
+
 function showLoading() {
   loadingSpinner.classList.remove('hidden');
   weatherContent.classList.add('hidden');
@@ -738,10 +891,13 @@ function displaySunTimeline(sunriseUnix, sunsetUnix, offsetInSeconds) {
   }
 }
 
-// City Search Autocomplete Dropdown
+// City Search Autocomplete Dropdown with Smart Ranking
 function setupCityAutocomplete() {
+  let selectedIndex = -1;
+
   cityInput.addEventListener('input', () => {
     const query = cityInput.value.trim();
+    selectedIndex = -1;
     if (autocompleteDebounceTimer) clearTimeout(autocompleteDebounceTimer);
 
     if (query.length < 2) {
@@ -752,28 +908,68 @@ function setupCityAutocomplete() {
 
     autocompleteDebounceTimer = setTimeout(async () => {
       try {
-        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=${API_KEY}`;
+        const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=10&appid=${API_KEY}`;
         const res = await fetch(geoUrl);
         if (!res.ok) return;
         const matches = await res.json();
 
         if (matches && matches.length > 0) {
+          // Rank matches based on intelligent relevance priority:
+          // 1. Exact city-name match
+          // 2. City name starts with the query
+          // 3. Strong partial/fuzzy match
+          // 4. More prominent cities / concise primary names
+          // 5. Country/region match
+          const rankMatches = (items, q) => {
+            const lowerQuery = q.toLowerCase();
+            return items.slice().sort((a, b) => {
+              const score = (item) => {
+                let s = 0;
+                const name = (item.name || '').toLowerCase();
+                const country = (item.country || '').toLowerCase();
+                const state = (item.state || '').toLowerCase();
+
+                if (name === lowerQuery) {
+                  s += 1000;
+                } else if (name.startsWith(lowerQuery)) {
+                  s += 500 - Math.min(name.length, 30);
+                } else if (name.includes(lowerQuery)) {
+                  s += 200 - Math.min(name.length, 30);
+                }
+
+                if (country === lowerQuery || state === lowerQuery) {
+                  s += 50;
+                }
+                return s;
+              };
+              return score(b) - score(a);
+            });
+          };
+
+          const ranked = rankMatches(matches, query).slice(0, 5);
           autocompleteList.innerHTML = '';
-          matches.forEach((item) => {
+          selectedIndex = -1;
+
+          ranked.forEach((item, index) => {
             const row = document.createElement('div');
             row.className = 'autocomplete-item';
-            const flag = getCountryFlagEmoji(item.country);
+            row.dataset.index = index;
+            const flag = getCountryFlagImg(item.country);
             const countryFull = getCountryName(item.country);
             const stateStr = item.state ? `, ${item.state}` : '';
+            const displayLabel = `${item.name}${stateStr}, ${countryFull}`;
+
             row.innerHTML = `
-              <span class="city-name-part">${item.name}${stateStr}, ${countryFull}</span>
+              <span class="city-name-part">${displayLabel}</span>
               <span class="country-flag-badge">${flag}</span>
             `;
+
             row.addEventListener('click', () => {
-              cityInput.value = `${item.name}, ${countryFull} ${flag}`;
+              cityInput.value = displayLabel;
               autocompleteList.classList.add('hidden');
               fetchWeatherData(item.name);
             });
+
             autocompleteList.appendChild(row);
           });
           autocompleteList.classList.remove('hidden');
@@ -786,16 +982,48 @@ function setupCityAutocomplete() {
     }, 250);
   });
 
-  // Close dropdown on outside click
-  document.addEventListener('click', (e) => {
-    if (!cityInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+  // Keyboard navigation for autocomplete list
+  cityInput.addEventListener('keydown', (e) => {
+    const items = autocompleteList.querySelectorAll('.autocomplete-item');
+    if (autocompleteList.classList.contains('hidden') || items.length === 0) {
+      if (e.key === 'Escape') {
+        autocompleteList.classList.add('hidden');
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex + 1) % items.length;
+      updateActiveItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+      updateActiveItem(items);
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && items[selectedIndex]) {
+        e.preventDefault();
+        items[selectedIndex].click();
+      }
+    } else if (e.key === 'Escape') {
       autocompleteList.classList.add('hidden');
     }
   });
 
-  // Close on Escape key
-  cityInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
+  function updateActiveItem(items) {
+    items.forEach((item, idx) => {
+      if (idx === selectedIndex) {
+        item.classList.add('active');
+        item.scrollIntoView({ block: 'nearest' });
+      } else {
+        item.classList.remove('active');
+      }
+    });
+  }
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!cityInput.contains(e.target) && !autocompleteList.contains(e.target)) {
       autocompleteList.classList.add('hidden');
     }
   });
@@ -1099,6 +1327,81 @@ function showToast(msg) {
   }, 2500);
 }
 
+// Side-by-Side City Comparison (Round 5)
+function setupCityComparison() {
+  if (!compareForm || !compareInput) return;
+
+  compareForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const secondCity = compareInput.value.trim();
+    if (!secondCity) return;
+
+    if (!currentWeatherData) {
+      showToast('Please search for a primary city first');
+      return;
+    }
+
+    try {
+      const compareUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+        secondCity
+      )}&units=metric&appid=${API_KEY}`;
+      const res = await fetch(compareUrl);
+
+      if (!res.ok) {
+        showToast(`City "${secondCity}" not found`);
+        return;
+      }
+
+      const data2 = await res.json();
+      renderComparison(currentWeatherData, data2);
+    } catch (err) {
+      console.error('Comparison error:', err);
+      showToast('Error comparing cities');
+    }
+  });
+}
+
+function renderComparison(city1, city2) {
+  if (!compareContainer || !compareCardPrimary || !compareCardSecondary) return;
+
+  const unit = isCelsius ? '°C' : '°F';
+  const c1Flag = getCountryFlagImg(city1.sys.country);
+  const c2Flag = getCountryFlagImg(city2.sys.country);
+  const c1Country = getCountryName(city1.sys.country);
+  const c2Country = getCountryName(city2.sys.country);
+
+  const t1 = formatTempNumber(city1.main.temp);
+  const t2 = formatTempNumber(city2.main.temp);
+  const fl1 = formatTempNumber(city1.main.feels_like);
+  const fl2 = formatTempNumber(city2.main.feels_like);
+
+  compareCardPrimary.innerHTML = `
+    <div class="compare-card-title">${city1.name}, ${c1Country} ${c1Flag}</div>
+    <div class="compare-temp-row">
+      <span class="compare-temp-val">${t1}${unit}</span>
+      <span style="font-size: 0.85rem; color: var(--text-secondary); text-transform: capitalize;">${city1.weather[0].description}</span>
+    </div>
+    <div class="compare-metric-row"><span>Feels Like</span><span>${fl1}${unit}</span></div>
+    <div class="compare-metric-row"><span>Humidity</span><span>${city1.main.humidity}%</span></div>
+    <div class="compare-metric-row"><span>Wind</span><span>${city1.wind.speed} m/s</span></div>
+    <div class="compare-metric-row"><span>Pressure</span><span>${city1.main.pressure} hPa</span></div>
+  `;
+
+  compareCardSecondary.innerHTML = `
+    <div class="compare-card-title">${city2.name}, ${c2Country} ${c2Flag}</div>
+    <div class="compare-temp-row">
+      <span class="compare-temp-val">${t2}${unit}</span>
+      <span style="font-size: 0.85rem; color: var(--text-secondary); text-transform: capitalize;">${city2.weather[0].description}</span>
+    </div>
+    <div class="compare-metric-row"><span>Feels Like</span><span>${fl2}${unit}</span></div>
+    <div class="compare-metric-row"><span>Humidity</span><span>${city2.main.humidity}%</span></div>
+    <div class="compare-metric-row"><span>Wind</span><span>${city2.wind.speed} m/s</span></div>
+    <div class="compare-metric-row"><span>Pressure</span><span>${city2.main.pressure} hPa</span></div>
+  `;
+
+  compareContainer.classList.remove('hidden');
+}
+
 // Professional PDF Report Generator
 function setupExportPdf() {
   const exportPdfBtn = document.getElementById('export-pdf-btn');
@@ -1117,7 +1420,7 @@ function setupExportPdf() {
     showToast('Generating PDF report... 📄');
 
     const countryFull = getCountryName(currentWeatherData.sys.country);
-    const flag = getCountryFlagEmoji(currentWeatherData.sys.country);
+    const flag = getCountryFlagImg(currentWeatherData.sys.country);
     const cityNameStr = `${currentWeatherData.name}, ${countryFull} ${flag}`;
     const unit = isCelsius ? '°C' : '°F';
     const tempVal = `${formatTempNumber(currentWeatherData.main.temp)}${unit}`;
@@ -1221,8 +1524,22 @@ function setupExportPdf() {
   });
 }
 
-setupExportPdf();
-setupCityComparison();
+// App Initialization
+function initApp() {
+  loadTheme();
+  loadSearchHistory();
+  loadFavorites();
+  setupCityAutocomplete();
+  setupExportPdf();
+  setupCityComparison();
 
-// Initial fetch on page load (Default city)
-fetchWeatherData('Delhi');
+  // Set default city to Delhi on page load
+  cityInput.value = 'Delhi';
+  fetchWeatherData('Delhi');
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
