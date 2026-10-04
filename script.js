@@ -371,18 +371,21 @@ function displayForecast(data) {
   renderForecastChart(data);
 }
 
-// Step 5B: Render Hourly Forecast (Next 12 hours)
+// Step 5B: Render AccuWeather-style Hourly Forecast (Next 24 hours, every 3h)
 function displayHourlyForecast(data) {
   hourlyForecast.innerHTML = '';
   rawHourlyTemps = [];
 
-  // Take first 4 entries (each is 3 hours apart = 12 hours total)
-  const hourlyData = data.list.slice(0, 4);
+  // Take 8 entries (3-hour intervals = 24 hours)
+  const hourlyData = data.list.slice(0, 8);
 
-  hourlyData.forEach((reading) => {
-    // reading.dt is UTC Unix seconds. Adding the city's timezone offset (seconds)
-    // shifts it to city-local time. We then format with timeZone:'UTC' so the
-    // Date object's already-shifted value is read as-is — no machine offset applied.
+  // Build a mini temp bar: find min/max for the bar chart
+  const allTemps = hourlyData.map(r => r.main.temp);
+  const minT = Math.min(...allTemps);
+  const maxT = Math.max(...allTemps);
+  const tempRange = maxT - minT || 1;
+
+  hourlyData.forEach((reading, index) => {
     const time = new Date((reading.dt + (cityTimezoneOffset || 0)) * 1000).toLocaleTimeString('en-US', {
       hour: 'numeric',
       hour12: true,
@@ -391,13 +394,34 @@ function displayHourlyForecast(data) {
     const tempC = reading.main.temp;
     rawHourlyTemps.push(tempC);
     const iconCode = reading.weather[0].icon;
+    const desc = reading.weather[0].description;
 
+    // Precipitation probability (0–1 float from OWM)
+    const pop = reading.pop !== undefined ? Math.round(reading.pop * 100) : 0;
+    // Wind speed
+    const windMps = reading.wind ? reading.wind.speed.toFixed(1) : null;
+    // Feels like
+    const feelsC = reading.main.feels_like;
+
+    // Relative bar height for the mini temp chart (20%–90% range)
+    const barPct = Math.round(20 + ((tempC - minT) / tempRange) * 70);
+
+    const isFirstOrNow = index === 0;
     const card = document.createElement('div');
-    card.className = 'hourly-card';
+    card.className = `hourly-card${isFirstOrNow ? ' hourly-card--now' : ''}`;
     card.innerHTML = `
-      <span class="hourly-time">${time}</span>
-      <img src="${getAnimatedIconUrl(iconCode)}" alt="weather" />
+      <span class="hourly-time">${isFirstOrNow ? 'Now' : time}</span>
+      <img src="${getAnimatedIconUrl(iconCode)}" alt="${desc}" class="hourly-icon" />
       <span class="hourly-temp">${formatTempNumber(tempC)}${isCelsius ? '°C' : '°F'}</span>
+      <span class="hourly-feels">Feels ${formatTempNumber(feelsC)}°</span>
+      <div class="hourly-pop${pop > 20 ? ' hourly-pop--active' : ''}">
+        <span class="hourly-pop-icon">💧</span>
+        <span class="hourly-pop-val">${pop}%</span>
+      </div>
+      ${windMps !== null ? `<div class="hourly-wind"><span class="hourly-wind-icon">💨</span>${windMps} m/s</div>` : ''}
+      <div class="hourly-bar-wrap">
+        <div class="hourly-bar-fill" style="height:${barPct}%"></div>
+      </div>
     `;
     hourlyForecast.appendChild(card);
   });
@@ -560,8 +584,8 @@ function renderForecastChart(data) {
 
   const ctx = chartCanvas.getContext('2d');
   const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-  gradient.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-  gradient.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
+  gradient.addColorStop(0, 'rgba(138, 158, 85, 0.5)');
+  gradient.addColorStop(1, 'rgba(138, 158, 85, 0.03)');
 
   if (tempChart) {
     tempChart.destroy();
@@ -575,12 +599,12 @@ function renderForecastChart(data) {
         {
           label: `Temperature (${currentUnit})`,
           data: temps,
-          borderColor: '#38bdf8',
+          borderColor: '#8a9e55',
           backgroundColor: gradient,
           borderWidth: 3,
           fill: true,
           tension: 0.38,
-          pointBackgroundColor: '#38bdf8',
+          pointBackgroundColor: '#8a9e55',
           pointBorderColor: '#ffffff',
           pointBorderWidth: 2,
           pointRadius: 6,
@@ -595,9 +619,9 @@ function renderForecastChart(data) {
         legend: { display: false },
         tooltip: {
           backgroundColor: 'rgba(15, 23, 42, 0.9)',
-          titleColor: '#38bdf8',
-          bodyColor: '#f8fafc',
-          borderColor: 'rgba(255, 255, 255, 0.15)',
+          titleColor: '#a8b87a',
+          bodyColor: '#f0f0ea',
+          borderColor: 'rgba(138, 158, 85, 0.4)',
           borderWidth: 1,
           padding: 10,
           displayColors: false,
@@ -609,13 +633,13 @@ function renderForecastChart(data) {
       scales: {
         x: {
           grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: 'rgba(248, 250, 252, 0.7)', font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' } }
+          ticks: { color: 'rgba(240, 240, 234, 0.7)', font: { family: 'Inter', size: 12, weight: '600' } }
         },
         y: {
-          grid: { color: 'rgba(255, 255, 255, 0.08)' },
+          grid: { color: 'rgba(255, 255, 255, 0.07)' },
           ticks: {
-            color: 'rgba(248, 250, 252, 0.7)',
-            font: { family: 'Plus Jakarta Sans', size: 12 },
+            color: 'rgba(240, 240, 234, 0.7)',
+            font: { family: 'Inter', size: 12 },
             callback: (val) => `${val}${currentUnit}`
           }
         }
