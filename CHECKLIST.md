@@ -55,7 +55,7 @@ This checklist tracks the implementation status of all features, architecture co
 
 ---
 
-### 🎯 Round 6: Precision Search, Maps & Allergy Forecasting
+### 🎯 Round 6: Precision Search, Geocoding & Weather Radar
 - [x] **Default City on Initial Load**: Delhi, India loads automatically on first visit without manual search or blank state.
 - [x] **Smart City Autocomplete**: Intelligent ranking priority:
   1. Exact city-name match
@@ -66,8 +66,7 @@ This checklist tracks the implementation status of all features, architecture co
 - [x] **Top 5 Suggestion Limit**: Shows maximum 5 ranked results from expanded geocoding lookups.
 - [x] **Autocomplete Keyboard Navigation**: Full keyboard support (`ArrowDown`, `ArrowUp`, `Enter`, `Escape`).
 - [x] **Cross-Platform Country Flags**: FlagCDN image rendering for 100% reliable display across Windows, macOS, Linux, Android, and iOS.
-- [x] **Interactive Radar & Weather Maps**: Leaflet.js map with CartoDB dark tiles and switchable layers for Precipitation, Temperature, Clouds, and Wind.
-- [x] **Pollen & Allergy Health Risk Forecast**: Tree, Grass, and Weed pollen level tracking with allergy precautions.
+- [x] **Interactive Radar & Weather Maps**: Leaflet.js map with OpenStreetMap tiles and switchable layers for Precipitation, Temperature, Clouds, and Wind.
 
 ---
 

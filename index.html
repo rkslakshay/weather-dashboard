@@ -3,439 +3,403 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SkyPulse — Atmospheric Weather Dashboard</title>
+  <title>SkyPulse — Premium Weather Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0d0f17" />
+  <meta name="theme-color" content="#07071a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="SkyPulse" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Google Fonts: Inter -->
+  <!-- Google Fonts: Inter + Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <!-- Leaflet.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
-<body class="weather-dark-theme">
+<body>
 
-  <!-- Atmospheric Weather Backdrop -->
-  <div class="weather-backdrop"></div>
-  <div class="rain-overlay"></div>
+  <!-- ===================== ANIMATED BACKGROUND BLOBS ===================== -->
+  <div class="bg-blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
 
-  <!-- Centered App Dashboard Container -->
-  <div class="app-dashboard-window">
-    
-    <!-- Dashboard Top Bar / Header -->
-    <header class="dashboard-topbar">
-      <div class="brand-area">
-        <span class="brand-icon">⛅</span>
-        <span class="brand-title">SkyPulse</span>
-      </div>
-
-      <div class="topbar-actions">
-        <button id="favorite-btn" class="topbar-btn" title="Add to favorites">☆</button>
-        <button id="export-pdf-btn" class="topbar-btn" title="Export PDF report">📄 PDF</button>
-        <button id="unit-toggle" class="topbar-pill-btn">Switch to °F</button>
-        <button id="theme-toggle" class="topbar-icon-btn" title="Toggle theme">
-          <span class="theme-icon" id="theme-icon">◐</span>
-        </button>
-        <button id="details-toggle-btn" class="topbar-pill-btn topbar-radar-btn" title="Toggle Radar & Analytics">
-          <span>📡 Radar &amp; Analytics</span>
-          <span class="toggle-arrow" id="toggle-arrow">▾</span>
-        </button>
-      </div>
-    </header>
-
-    <!-- Chips / History / Favorites area -->
-    <div class="chips-area">
-      <!-- Search History -->
-      <div id="search-history" class="search-history hidden">
-        <div class="history-header">
-          <span>🕘 Recent Searches</span>
-          <button id="clear-history" class="clear-history-btn">Clear</button>
-        </div>
-        <div id="history-chips" class="history-chips"></div>
-      </div>
-
-      <!-- Favorite Cities -->
-      <div id="favorites-section" class="favorites-section hidden">
-        <div class="favorites-header">
-          <span>★ Favorite Cities</span>
-        </div>
-        <div id="favorites-chips" class="favorites-chips"></div>
-      </div>
+  <!-- ===================== HEADER ===================== -->
+  <header class="header" role="banner">
+    <!-- Brand -->
+    <div class="header-brand">
+      <span class="brand-icon" aria-hidden="true">⛅</span>
+      <span class="brand-name">SkyPulse</span>
     </div>
 
-    <!-- Alerts Banner -->
-    <div id="alerts-banner" class="alerts-banner hidden">
-      <div class="alert-icon">⚠️</div>
-      <div class="alert-content">
-        <strong id="alert-title">Weather Alert</strong>
-        <p id="alert-description">--</p>
+    <!-- Search form -->
+    <form id="search-form" class="search-form" role="search" aria-label="Search for a city">
+      <div class="search-input-wrapper">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input
+          type="text"
+          id="city-input"
+          class="search-input"
+          placeholder="Search city… e.g. Tokyo, London, Delhi"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="City name"
+          aria-autocomplete="list"
+          aria-controls="autocomplete-list"
+          required
+        />
+        <!-- Hidden submit for JS compat / a11y -->
+        <button type="submit" id="search-btn" class="visually-hidden" aria-hidden="true" tabindex="-1">Search</button>
+        <div id="autocomplete-list" class="autocomplete-dropdown hidden" role="listbox" aria-label="City suggestions"></div>
       </div>
-      <button id="alert-toggle" class="alert-toggle-btn">Details</button>
-    </div>
-    <div id="alert-details" class="alert-details hidden">
-      <div id="alert-full-text"></div>
-    </div>
+      <button type="button" id="geo-btn" class="geo-btn" title="Use current location" aria-label="Use current location">
+        <span aria-hidden="true">📍</span>
+      </button>
+    </form>
 
-    <!-- Error Banner -->
-    <div id="error-message" class="error-banner hidden">
-      <span id="error-text">City not found. Please try again.</span>
-    </div>
+    <!-- Theme toggle -->
+    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle light/dark theme" aria-label="Toggle theme">
+      <span class="theme-icon" id="theme-icon" aria-hidden="true">◐</span>
+    </button>
+  </header>
 
-    <!-- Loading Spinner -->
-    <div id="loading-spinner" class="spinner-container hidden">
-      <div class="spinner"></div>
-      <p>Fetching real-time weather…</p>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="toast hidden">Report copied to clipboard!</div>
-
-    <!-- ================= MAIN WEATHER CONTENT ================= -->
-    <main id="weather-content" class="weather-content">
-      
-      <!-- PRIMARY TWO-COLUMN DASHBOARD (Exact Match to User Reference) -->
-      <div class="dashboard-grid">
-
-        <!-- ================= LEFT COLUMN ================= -->
-        <div class="grid-left-col">
-          
-          <!-- Search Pill -->
-          <form id="search-form" class="search-pill-form">
-            <div class="search-pill-box">
-              <button type="button" id="geo-btn" class="search-pin-btn" title="Use current location">
-                <span class="pin-icon">📍</span>
-              </button>
-              <input
-                type="text"
-                id="city-input"
-                class="search-input"
-                placeholder="Hanoi, Vietnam"
-                autocomplete="off"
-                required
-              />
-              <button type="submit" id="search-btn" class="search-btn-hidden" aria-hidden="true" tabindex="-1">Search</button>
-              <div id="autocomplete-list" class="autocomplete-dropdown hidden"></div>
-            </div>
-          </form>
-
-          <!-- Hidden elements preserved for JS compatibility -->
-          <div class="visually-hidden">
-            <span id="city-name">--</span>
-            <span id="current-date">--</span>
-            <span id="local-time">--</span>
-            <img id="weather-icon" src="" alt="" />
-            <span id="pressure">--</span>
-            <span id="pressure-trend">--</span>
-          </div>
-
-          <!-- Hero Weather Card -->
-          <div class="card-hero">
-            <div class="hero-temp-row">
-              <span id="temperature" class="hero-temp-num">28</span><span id="unit-label" class="hero-temp-deg">°</span>
-            </div>
-            <div id="weather-condition" class="hero-condition-label">Rainy Day</div>
-            <p id="activity-advice" class="hero-advice-para">
-              Today, expect a rainy day with temperatures reaching a maximum of 28°C. Make sure to grab your umbrella and raincoat before heading out.
-            </p>
-          </div>
-
-          <!-- 2x2 Metrics Grid -->
-          <div class="metrics-quad-grid">
-            
-            <!-- Tile 1: FEELS LIKE -->
-            <div class="metric-quad-tile">
-              <div class="quad-header">
-                <span class="quad-icon">🌡️</span>
-                <span class="quad-label">FEELS LIKE</span>
-              </div>
-              <div class="quad-value-wrap">
-                <span id="feels-like" class="quad-val">30</span><span id="feels-unit" class="quad-unit">°</span>
-              </div>
-              <div id="feels-subtext" class="quad-subtext">Humidity is making it feel warmer</div>
-            </div>
-
-            <!-- Tile 2: PRECIPITATION -->
-            <div class="metric-quad-tile">
-              <div class="quad-header">
-                <span class="quad-icon">💧</span>
-                <span class="quad-label">PRECIPITATION</span>
-              </div>
-              <div class="quad-value-wrap">
-                <span id="precip-val" class="quad-val">2.3"</span>
-              </div>
-              <div id="precip-subtext" class="quad-subtext">
-                in last 24h<br><span class="quad-subtext-dim">2" expected in next 24h</span>
-              </div>
-            </div>
-
-            <!-- Tile 3: VISIBILITY -->
-            <div class="metric-quad-tile">
-              <div class="quad-header">
-                <span class="quad-icon">👁️</span>
-                <span class="quad-label">VISIBILITY</span>
-              </div>
-              <div class="quad-value-wrap">
-                <span id="visibility" class="quad-val">6 mi</span>
-              </div>
-              <div id="visibility-subtext" class="quad-subtext">Clear conditions</div>
-            </div>
-
-            <!-- Tile 4: HUMIDITY -->
-            <div class="metric-quad-tile">
-              <div class="quad-header">
-                <span class="quad-icon">💧</span>
-                <span class="quad-label">HUMIDITY</span>
-              </div>
-              <div class="quad-value-wrap">
-                <span id="humidity" class="quad-val">82%</span>
-              </div>
-              <div class="quad-subtext">
-                The dew point is <span id="dew-point">25°</span> right now
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-        <!-- ================= END LEFT COLUMN ================= -->
-
-        <!-- ================= RIGHT COLUMN ================= -->
-        <div class="grid-right-col">
-
-          <!-- Card 1: HOURLY FORECAST -->
-          <div class="right-dashboard-card card-hourly-widget">
-            <div class="widget-header">
-              <span class="widget-icon">🕒</span>
-              <span class="widget-title">HOURLY FORECAST</span>
-            </div>
-            <div id="hourly-forecast" class="hourly-forecast-row">
-              <!-- Rendered dynamically by script.js -->
-            </div>
-            <div class="widget-scroll-bar">
-              <div class="widget-scroll-thumb"></div>
-            </div>
-          </div>
-
-          <!-- Card 2: 10-DAY / 5-DAY FORECAST -->
-          <div class="right-dashboard-card card-daily-widget">
-            <div class="widget-header">
-              <span class="widget-icon">📅</span>
-              <span class="widget-title">10-DAY FORECAST</span>
-            </div>
-            <div id="forecast-cards" class="daily-forecast-row">
-              <!-- Rendered dynamically by script.js -->
-            </div>
-            <div class="widget-scroll-bar">
-              <div class="widget-scroll-thumb"></div>
-            </div>
-          </div>
-
-          <!-- Bottom Row: UV INDEX & WIND Side-by-Side -->
-          <div class="bottom-twin-row">
-            
-            <!-- UV Index Card -->
-            <div class="right-dashboard-card card-uv-widget">
-              <div class="widget-header">
-                <span class="widget-icon">🌡️</span>
-                <span class="widget-title">UV INDEX</span>
-              </div>
-              <div class="uv-main-val">
-                <span id="uv-index" class="uv-val-num">3</span>
-              </div>
-              <div id="uv-category" class="uv-cat-text">Moderate</div>
-              <div class="uv-bar-track">
-                <div id="uv-dot" class="uv-indicator-dot" style="left: 27%;"></div>
-              </div>
-              <div id="uv-advice" class="uv-sub-advice">Use sun protection until 16:00</div>
-            </div>
-
-            <!-- Wind Card -->
-            <div class="right-dashboard-card card-wind-widget">
-              <div class="widget-header">
-                <span class="widget-icon">🌀</span>
-                <span class="widget-title">WIND</span>
-              </div>
-              <div class="wind-inner-flex">
-                <!-- Left: Numerical Stats -->
-                <div class="wind-stats-col">
-                  <div class="wind-stat-item">
-                    <div class="wind-num-wrap">
-                      <span id="wind-speed-val" class="wind-big-num">3</span>
-                      <span class="wind-unit-label">MPH</span>
-                    </div>
-                    <div class="wind-label-caption">Wind</div>
-                  </div>
-                  <div class="wind-horizontal-divider"></div>
-                  <div class="wind-stat-item">
-                    <div class="wind-num-wrap">
-                      <span id="wind-gust-val" class="wind-big-num">9</span>
-                      <span class="wind-unit-label">MPH</span>
-                    </div>
-                    <div class="wind-label-caption">Gusts</div>
-                  </div>
-                </div>
-
-                <!-- Right: Analog Compass Dial -->
-                <div class="wind-compass-col">
-                  <div class="analog-compass">
-                    <div class="compass-dial-ring">
-                      <span class="compass-pt compass-n">N</span>
-                      <span class="compass-pt compass-e">E</span>
-                      <span class="compass-pt compass-s">S</span>
-                      <span class="compass-pt compass-w">W</span>
-                      <div id="wind-arrow" class="compass-needle-box">
-                        <div class="needle-pointer"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- Preserved elements for JS script compatibility -->
-              <span id="wind-speed" class="visually-hidden">--</span>
-              <span id="wind-dir" class="visually-hidden">--</span>
-            </div>
-
-          </div>
-
-        </div>
-        <!-- ================= END RIGHT COLUMN ================= -->
-
+  <!-- ===================== CHIPS AREA: History + Favorites ===================== -->
+  <div class="chips-area">
+    <div id="search-history" class="search-history hidden" aria-label="Recent searches">
+      <div class="history-header">
+        <span>🕘 Recent</span>
+        <button id="clear-history" class="clear-history-btn" aria-label="Clear search history">Clear</button>
       </div>
-      <!-- ================= END PRIMARY GRID ================= -->
+      <div id="history-chips" class="history-chips"></div>
+    </div>
+    <div id="favorites-section" class="favorites-section hidden" aria-label="Favorite cities">
+      <div class="favorites-header"><span>★ Favorites</span></div>
+      <div id="favorites-chips" class="favorites-chips"></div>
+    </div>
+  </div>
 
-      <!-- ================= EXPANDABLE ANALYTICS & RADAR DRAWER ================= -->
-      <div id="analytics-drawer" class="analytics-drawer hidden">
-        
-        <!-- Radar Map Section -->
-        <section class="radar-section analytics-card">
-          <div class="drawer-card-header">
-            <div>
-              <h3 class="drawer-heading">📡 Live Weather Radar</h3>
-              <p class="drawer-subtext">Interactive precipitation, temperature, cloud and wind map</p>
+  <!-- ===================== WEATHER ALERT BANNER ===================== -->
+  <div id="alerts-banner" class="alerts-banner hidden" role="alert" aria-live="assertive">
+    <div class="alert-icon" aria-hidden="true">⚠️</div>
+    <div class="alert-content">
+      <strong id="alert-title">Weather Alert</strong>
+      <p id="alert-description">--</p>
+    </div>
+    <button id="alert-toggle" class="alert-toggle-btn" aria-expanded="false">Details</button>
+  </div>
+  <div id="alert-details" class="alert-details hidden" aria-live="polite">
+    <div id="alert-full-text"></div>
+  </div>
+
+  <!-- ===================== ERROR BANNER ===================== -->
+  <div id="error-message" class="error-banner hidden" role="alert">
+    <span id="error-text">City not found. Please try again.</span>
+  </div>
+
+  <!-- ===================== LOADING SPINNER ===================== -->
+  <div id="loading-spinner" class="spinner-container hidden" role="status" aria-live="polite" aria-label="Loading weather data">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Fetching weather data…</p>
+  </div>
+
+  <!-- ===================== TOAST NOTIFICATION ===================== -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite">Report copied to clipboard!</div>
+
+  <!-- ===================== MAIN WEATHER CONTENT ===================== -->
+  <main id="weather-content" class="weather-content hidden" aria-label="Weather information">
+    <div class="layout-grid">
+
+      <!-- =================== LEFT SIDEBAR =================== -->
+      <aside class="sidebar" aria-label="Current weather and conditions">
+
+        <!-- Hero Current Weather Card -->
+        <section class="current-weather-card card-glass card-anim" style="--anim-delay:0.05s" aria-label="Current weather">
+          <!-- City + Controls row -->
+          <div class="cw-top-row">
+            <div class="city-title-wrapper">
+              <h2 id="city-name">--</h2>
+              <button id="favorite-btn" class="favorite-btn" title="Add to favorites" aria-label="Toggle favorite" aria-pressed="false">☆</button>
             </div>
-            <div class="radar-layer-toggles">
-              <button class="radar-toggle-btn active" data-layer="precipitation">🌧 Rain</button>
-              <button class="radar-toggle-btn" data-layer="temp">🌡 Temp</button>
-              <button class="radar-toggle-btn" data-layer="clouds">☁️ Clouds</button>
-              <button class="radar-toggle-btn" data-layer="wind">💨 Wind</button>
-            </div>
+            <button id="export-pdf-btn" class="btn-pill btn-pdf share-btn pdf-btn" title="Export PDF report" aria-label="Export PDF weather report">
+              <span aria-hidden="true">📄</span> PDF
+            </button>
           </div>
-          <div class="radar-map-wrapper">
-            <div id="radar-map" class="radar-map"></div>
+
+          <!-- Date + local time -->
+          <div class="time-row">
+            <p id="current-date" class="date-text">--</p>
+            <span class="time-dot" aria-hidden="true">•</span>
+            <p id="local-time" class="local-time-text" title="Local city time">🕒 --:--</p>
+          </div>
+
+          <!-- Hero center: icon → condition → temp -->
+          <div class="hero-weather-center">
+            <div class="weather-icon-wrapper">
+              <img id="weather-icon" src="" alt="Weather condition icon" class="hero-icon" />
+            </div>
+            <span id="weather-condition" class="condition-pill">--</span>
+            <div class="temp-display">
+              <span id="temperature" class="temp-val">--</span><span id="unit-label" class="unit">°C</span>
+            </div>
+            <div class="temp-meta-row">
+              <button id="unit-toggle" class="btn-pill btn-glass unit-toggle-btn" aria-label="Switch temperature unit">Switch to °F</button>
+              <p class="feels-like">Feels like <span id="feels-like">--</span><span id="feels-unit">°C</span></p>
+            </div>
           </div>
         </section>
 
-        <!-- Temperature Trend Chart -->
-        <section class="chart-section analytics-card">
-          <div class="drawer-card-header">
-            <h3 class="drawer-heading">📈 5-Day Temperature Trend</h3>
-            <span id="chart-unit-badge" class="chart-unit-badge">°C</span>
-          </div>
-          <div class="chart-wrapper">
-            <canvas id="temp-chart"></canvas>
+        <!-- Metrics Grid -->
+        <section class="metrics-section card-glass card-anim" style="--anim-delay:0.12s" aria-label="Weather metrics">
+          <h3 class="section-heading">📊 Conditions</h3>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-emoji" aria-hidden="true">💧</span>
+              <span class="metric-label">Humidity</span>
+              <span id="humidity" class="metric-value">--%</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji" aria-hidden="true">💨</span>
+              <span class="metric-label">Wind</span>
+              <span id="wind-speed" class="metric-value">-- m/s</span>
+              <div class="wind-dir-wrapper">
+                <span id="wind-dir" class="metric-subvalue">--</span>
+                <span id="wind-arrow" class="wind-arrow" aria-hidden="true">↑</span>
+              </div>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji" aria-hidden="true">🌡️</span>
+              <span class="metric-label">Pressure</span>
+              <span id="pressure" class="metric-value">-- hPa</span>
+              <span id="pressure-trend" class="metric-subvalue">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji" aria-hidden="true">👁️</span>
+              <span class="metric-label">Visibility</span>
+              <span id="visibility" class="metric-value">-- km</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji" aria-hidden="true">☀️</span>
+              <span class="metric-label">UV Index</span>
+              <span id="uv-index" class="metric-value">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-emoji" aria-hidden="true">🌿</span>
+              <span class="metric-label">Dew Point</span>
+              <span id="dew-point" class="metric-value">--°C</span>
+            </div>
           </div>
         </section>
 
-        <!-- Sun Timeline Arc & Air Quality Index -->
-        <div class="analytics-twin-grid">
-          
-          <!-- Sun Arc -->
-          <div id="sun-timeline" class="sun-timeline-container analytics-card">
-            <div class="drawer-card-header">
-              <span class="drawer-heading">☀️ Sun Position &amp; Daylight</span>
-              <span id="daylight-duration" class="daylight-duration">--h --m daylight</span>
+        <!-- Activity Advisor -->
+        <div id="activity-advisor-container" class="activity-advisor-card card-glass card-anim" style="--anim-delay:0.18s" aria-label="Activity advice">
+          <div class="advisor-header">
+            <span class="advisor-icon" aria-hidden="true">💡</span>
+            <span class="advisor-title">Smart Activity Advisor</span>
+          </div>
+          <p id="activity-advice" class="activity-advice">Loading recommendations…</p>
+        </div>
+
+        <!-- Sun Timeline Arc -->
+        <div id="sun-timeline" class="sun-timeline-container card-glass card-anim" style="--anim-delay:0.24s" aria-label="Sunrise and sunset information">
+          <div class="sun-header">
+            <span class="sun-label">☀️ Sun &amp; Daylight</span>
+            <span id="daylight-duration" class="daylight-duration">--h --m daylight</span>
+          </div>
+          <div class="sun-arc-wrapper">
+            <svg class="sun-arc-svg" viewBox="0 0 300 120" aria-hidden="true">
+              <defs>
+                <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%"   stop-color="#f59e0b" />
+                  <stop offset="50%"  stop-color="#fb923c" />
+                  <stop offset="100%" stop-color="#a78bfa" />
+                </linearGradient>
+              </defs>
+              <path class="sun-arc-bg"   d="M 20,100 A 130,80 0 0,1 280,100" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-dasharray="6,4" />
+              <path class="sun-arc-fill" d="M 20,100 A 130,80 0 0,1 280,100" fill="none" stroke="url(#arcGrad)" stroke-width="3" stroke-linecap="round" opacity="0.55" />
+              <line x1="10" y1="100" x2="290" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+              <circle id="sun-marker" cx="20" cy="100" r="9" fill="#fbbf24" style="filter:drop-shadow(0 0 12px #f59e0b) drop-shadow(0 0 4px #fbbf24);" />
+            </svg>
+          </div>
+          <div class="sun-times-row">
+            <div class="sun-time-box">
+              <span class="sun-sublabel">🌅 Sunrise</span>
+              <span id="sunrise-time" class="sun-val">--:--</span>
             </div>
-            <div class="sun-arc-wrapper">
-              <svg class="sun-arc-svg" viewBox="0 0 300 120">
-                <defs>
-                  <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#f59e0b" />
-                    <stop offset="50%" stop-color="#fb923c" />
-                    <stop offset="100%" stop-color="#38bdf8" />
-                  </linearGradient>
-                </defs>
-                <path class="sun-arc-bg" d="M 20,100 A 130,80 0 0,1 280,100" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="3" stroke-dasharray="6,4" />
-                <path class="sun-arc-fill" d="M 20,100 A 130,80 0 0,1 280,100" fill="none" stroke="url(#arcGrad)" stroke-width="3" stroke-linecap="round" opacity="0.6" />
-                <line x1="10" y1="100" x2="290" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
-                <circle id="sun-marker" cx="20" cy="100" r="8" fill="#fbbf24" style="filter: drop-shadow(0 0 10px #f59e0b);" />
-              </svg>
-            </div>
-            <div class="sun-times-row">
-              <div class="sun-time-box">
-                <span class="sun-sublabel">🌅 Sunrise</span>
-                <span id="sunrise-time" class="sun-val">--:--</span>
-              </div>
-              <div class="sun-time-box" style="text-align:right">
-                <span class="sun-sublabel">🌇 Sunset</span>
-                <span id="sunset-time" class="sun-val">--:--</span>
-              </div>
+            <div class="sun-time-box" style="text-align:right">
+              <span class="sun-sublabel">🌇 Sunset</span>
+              <span id="sunset-time" class="sun-val">--:--</span>
             </div>
           </div>
+        </div>
 
-          <!-- Air Quality Index -->
-          <div id="aqi-container" class="aqi-container analytics-card">
-            <div class="drawer-card-header">
-              <span class="drawer-heading">🌬️ Air Quality Index</span>
-              <div class="aqi-value-display">
+        <!-- AQI Container -->
+        <div id="aqi-container" class="aqi-container card-glass card-anim hidden" style="--anim-delay:0.3s" aria-label="Air quality index">
+          <div class="aqi-header">
+            <span class="aqi-label">🌬️ Air Quality Index</span>
+            <div class="aqi-value-display">
+              <div class="aqi-main-value">
                 <span id="aqi-exact" class="aqi-exact">--</span>
                 <span class="aqi-unit">AQI</span>
-                <span id="aqi-value" class="visually-hidden">--</span>
-                <span id="aqi-text" class="aqi-badge">--</span>
               </div>
-            </div>
-            <div class="aqi-slider-container">
-              <div id="aqi-slider" class="aqi-slider">
-                <div id="aqi-fill" class="aqi-fill"></div>
-              </div>
-              <div class="aqi-scale">
-                <span>Good</span>
-                <span>Fair</span>
-                <span>Moderate</span>
-                <span>Poor</span>
-                <span>Very Poor</span>
+              <div class="aqi-category">
+                <span id="aqi-value" class="aqi-number">--</span>
+                <span id="aqi-text" class="aqi-status">--</span>
               </div>
             </div>
           </div>
-
+          <div class="aqi-slider-container">
+            <div id="aqi-slider" class="aqi-slider" role="progressbar" aria-label="AQI level">
+              <div id="aqi-fill" class="aqi-fill"></div>
+            </div>
+            <div class="aqi-scale" aria-hidden="true">
+              <span>Good</span><span>Fair</span><span>Moderate</span><span>Poor</span><span>V.Poor</span>
+            </div>
+          </div>
         </div>
 
-        <!-- City Comparison -->
-        <section class="compare-section analytics-card">
-          <div class="drawer-card-header">
-            <div>
-              <h3 class="drawer-heading">⚖️ Multi-City Comparison</h3>
-              <p class="drawer-subtext">Compare current weather side-by-side with another city</p>
-            </div>
+      </aside>
+      <!-- =================== END SIDEBAR =================== -->
+
+      <!-- =================== RIGHT MAIN CONTENT =================== -->
+      <div class="main-content">
+
+        <!-- Hourly Forecast -->
+        <section class="hourly-forecast-section card-glass card-anim" style="--anim-delay:0.08s" aria-label="Hourly forecast">
+          <div class="section-heading-row">
+            <h3 class="section-heading">🕐 Next 12 Hours</h3>
+            <span class="scroll-cue-badge" aria-hidden="true">Swipe ›</span>
           </div>
-          <form id="compare-form" class="compare-form">
+          <div class="scroll-fade-wrapper">
+            <div id="hourly-forecast" class="hourly-scroll" role="list" aria-label="Hourly weather cards" tabindex="0"></div>
+            <div class="scroll-fade-right" aria-hidden="true"></div>
+          </div>
+          <div class="scroll-indicator-dots" aria-hidden="true">
+            <span class="dot dot-active"></span><span class="dot"></span><span class="dot"></span>
+          </div>
+        </section>
+
+        <!-- 5-Day Forecast -->
+        <section class="forecast-section card-glass card-anim" style="--anim-delay:0.14s" aria-label="5-day forecast">
+          <div class="section-heading-row">
+            <h3 class="section-heading">📅 5-Day Forecast</h3>
+            <span class="scroll-cue-badge" aria-hidden="true">Swipe ›</span>
+          </div>
+          <div class="scroll-fade-wrapper">
+            <div id="forecast-cards" class="forecast-grid" role="list" aria-label="Daily forecast cards" tabindex="0">
+              <!-- Populated by script.js -->
+            </div>
+            <div class="scroll-fade-right" aria-hidden="true"></div>
+          </div>
+        </section>
+
+        <!-- Temperature Chart -->
+        <section class="chart-section card-glass card-anim" style="--anim-delay:0.2s" aria-label="Temperature trend chart">
+          <div class="chart-header">
+            <h3 class="section-heading">📈 5-Day Temperature Trend</h3>
+            <span id="chart-unit-badge" class="chart-unit-badge" aria-label="Chart temperature unit">°C</span>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="temp-chart" aria-label="Temperature trend chart" role="img"></canvas>
+          </div>
+        </section>
+
+        <!-- City Comparison -->
+        <section class="compare-section card-glass card-anim" style="--anim-delay:0.26s" aria-label="City weather comparison">
+          <div class="compare-header">
+            <h3 class="section-heading">⚖️ City Comparison</h3>
+            <p class="compare-subtext">Compare real-time weather against another city</p>
+          </div>
+          <form id="compare-form" class="compare-form" aria-label="Compare with another city">
             <div class="compare-input-wrapper">
               <input
                 type="text"
                 id="compare-input"
-                placeholder="Enter city to compare e.g. London, Tokyo…"
+                placeholder="Enter city e.g. London, Tokyo…"
+                aria-label="City to compare"
                 required
               />
             </div>
-            <button type="submit" id="compare-btn" class="compare-submit-btn">Compare</button>
+            <button type="submit" id="compare-btn" class="btn-pill btn-primary" aria-label="Compare cities">Compare</button>
           </form>
-          <div id="compare-container" class="compare-container hidden">
-            <div id="compare-card-primary" class="compare-card"></div>
-            <div class="compare-badge-vs">VS</div>
-            <div id="compare-card-secondary" class="compare-card"></div>
+          <div id="compare-container" class="compare-container hidden" aria-live="polite">
+            <div id="compare-card-primary" class="compare-card" role="region" aria-label="Primary city weather"></div>
+            <div class="compare-badge-vs" aria-label="versus">VS</div>
+            <div id="compare-card-secondary" class="compare-card" role="region" aria-label="Comparison city weather"></div>
+          </div>
+        </section>
+
+        <!-- Radar Map -->
+        <section class="radar-section card-glass card-anim" style="--anim-delay:0.32s" aria-label="Weather radar map">
+          <div class="radar-header">
+            <div>
+              <h3 class="section-heading">📡 Weather Radar</h3>
+              <p class="radar-subtext">Live map centered on your location</p>
+            </div>
+            <div class="radar-layer-toggles" role="group" aria-label="Radar layer selection">
+              <button class="radar-toggle-btn active" data-layer="precipitation" aria-pressed="true">🌧 Rain</button>
+              <button class="radar-toggle-btn" data-layer="temp" aria-pressed="false">🌡 Temp</button>
+              <button class="radar-toggle-btn" data-layer="clouds" aria-pressed="false">☁️ Clouds</button>
+              <button class="radar-toggle-btn" data-layer="wind" aria-pressed="false">💨 Wind</button>
+            </div>
+          </div>
+          <div class="radar-map-wrapper">
+            <div id="radar-map" class="radar-map" aria-label="Interactive weather map"></div>
+          </div>
+        </section>
+
+        <!-- Pollen & Health -->
+        <section class="health-section card-glass card-anim" style="--anim-delay:0.38s" aria-label="Pollen and health forecast">
+          <div class="health-header">
+            <div>
+              <h3 class="section-heading">🌿 Pollen &amp; Health</h3>
+              <p class="health-subtext">Allergy risk levels &amp; recommendations</p>
+            </div>
+            <span id="pollen-overall-status" class="pollen-status-badge">Moderate Risk</span>
+          </div>
+          <div class="pollen-grid">
+            <div class="pollen-card pollen-tree">
+              <div class="pollen-top">
+                <span class="pollen-label">🌳 Tree</span>
+                <span id="pollen-tree-val" class="pollen-val">Low</span>
+              </div>
+              <div class="pollen-bar-bg" role="progressbar" aria-label="Tree pollen level" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">
+                <div id="pollen-tree-bar" class="pollen-bar-fill pollen-bar-tree" style="width:25%"></div>
+              </div>
+            </div>
+            <div class="pollen-card pollen-grass">
+              <div class="pollen-top">
+                <span class="pollen-label">🌾 Grass</span>
+                <span id="pollen-grass-val" class="pollen-val">Moderate</span>
+              </div>
+              <div class="pollen-bar-bg" role="progressbar" aria-label="Grass pollen level" aria-valuenow="55" aria-valuemin="0" aria-valuemax="100">
+                <div id="pollen-grass-bar" class="pollen-bar-fill pollen-bar-grass" style="width:55%"></div>
+              </div>
+            </div>
+            <div class="pollen-card pollen-weed">
+              <div class="pollen-top">
+                <span class="pollen-label">🌼 Weed</span>
+                <span id="pollen-weed-val" class="pollen-val">Low</span>
+              </div>
+              <div class="pollen-bar-bg" role="progressbar" aria-label="Weed pollen level" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
+                <div id="pollen-weed-bar" class="pollen-bar-fill pollen-bar-weed" style="width:20%"></div>
+              </div>
+            </div>
+          </div>
+          <div id="health-advice-box" class="health-advice-box">
+            <strong>💡 Health &amp; Allergy Guidance</strong>
+            <p id="health-advice-text">Allergy levels are moderate. Sensitive individuals should consider wearing sunglasses or keeping windows closed during peak afternoon hours.</p>
           </div>
         </section>
 
       </div>
-      <!-- ================= END ANALYTICS DRAWER ================= -->
+      <!-- =================== END MAIN CONTENT =================== -->
 
-    </main>
-  </div>
+    </div>
+  </main>
 
   <!-- External Libraries & Scripts -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

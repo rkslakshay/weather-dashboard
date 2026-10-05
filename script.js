@@ -251,7 +251,6 @@ async function fetchWeatherData(city) {
     displayForecast(forecastData);
     displayHourlyForecast(forecastData);
     saveToHistory(city);
-    if (cityInput) cityInput.value = '';
     showContent();
   } catch (err) {
     if (err.status === 404 || (err.message && err.message.toLowerCase().includes('not found'))) {
@@ -288,7 +287,10 @@ function displayCurrentWeather(data) {
   const flagImg = getCountryFlagImg(data.sys.country);
   const countryFull = getCountryName(data.sys.country);
   if (cityName) cityName.innerHTML = `${data.name}, ${countryFull} ${flagImg}`;
-  if (cityInput) cityInput.placeholder = `${data.name}, ${countryFull}`;
+  if (cityInput) {
+    cityInput.value = `${data.name}, ${countryFull}`;
+    cityInput.placeholder = `${data.name}, ${countryFull}`;
+  }
 
   const condition = data.weather[0];
   const mainCond = (condition.main || '').toLowerCase();
@@ -917,7 +919,6 @@ async function fetchWeatherByCoords(lat, lon) {
     displayForecast(forecastData);
     displayHourlyForecast(forecastData);
     saveToHistory(currentData.name);
-    if (cityInput) cityInput.value = '';
     showContent();
   } catch (err) {
     showError(err.message || 'Failed to retrieve weather for your coordinates.');
@@ -1087,6 +1088,13 @@ function displaySunTimeline(sunriseUnix, sunsetUnix, offsetInSeconds) {
 function setupCityAutocomplete() {
   let selectedIndex = -1;
 
+  // Highlight input text on focus for quick search replacement
+  if (cityInput) {
+    cityInput.addEventListener('focus', () => {
+      cityInput.select();
+    });
+  }
+
   cityInput.addEventListener('input', () => {
     const query = cityInput.value.trim();
     selectedIndex = -1;
@@ -1101,71 +1109,91 @@ function setupCityAutocomplete() {
     autocompleteDebounceTimer = setTimeout(async () => {
       try {
         const matches = await fetchWeatherApi('geo/1.0/direct', { q: query, limit: 10 }, { ttl: 60 * 60 * 1000 });
-        if (!matches || !matches.length) return;
-
-        if (matches && matches.length > 0) {
-          // Rank matches based on intelligent relevance priority:
-          // 1. Exact city-name match
-          // 2. City name starts with the query
-          // 3. Strong partial/fuzzy match
-          // 4. More prominent cities / concise primary names
-          // 5. Country/region match
-          const rankMatches = (items, q) => {
-            const lowerQuery = q.toLowerCase();
-            return items.slice().sort((a, b) => {
-              const score = (item) => {
-                let s = 0;
-                const name = (item.name || '').toLowerCase();
-                const country = (item.country || '').toLowerCase();
-                const state = (item.state || '').toLowerCase();
-
-                if (name === lowerQuery) {
-                  s += 1000;
-                } else if (name.startsWith(lowerQuery)) {
-                  s += 500 - Math.min(name.length, 30);
-                } else if (name.includes(lowerQuery)) {
-                  s += 200 - Math.min(name.length, 30);
-                }
-
-                if (country === lowerQuery || state === lowerQuery) {
-                  s += 50;
-                }
-                return s;
-              };
-              return score(b) - score(a);
-            });
-          };
-
-          const ranked = rankMatches(matches, query).slice(0, 5);
-          autocompleteList.innerHTML = '';
-          selectedIndex = -1;
-
-          ranked.forEach((item, index) => {
-            const row = document.createElement('div');
-            row.className = 'autocomplete-item';
-            row.dataset.index = index;
-            const flag = getCountryFlagImg(item.country);
-            const countryFull = getCountryName(item.country);
-            const stateStr = item.state ? `, ${item.state}` : '';
-            const displayLabel = `${item.name}${stateStr}, ${countryFull}`;
-
-            row.innerHTML = `
-              <span class="city-name-part">${displayLabel}</span>
-              <span class="country-flag-badge">${flag}</span>
-            `;
-
-            row.addEventListener('click', () => {
-              cityInput.value = displayLabel;
-              autocompleteList.classList.add('hidden');
-              fetchWeatherData(item.name);
-            });
-
-            autocompleteList.appendChild(row);
-          });
-          autocompleteList.classList.remove('hidden');
-        } else {
+        if (!matches || !matches.length) {
           autocompleteList.classList.add('hidden');
+          autocompleteList.innerHTML = '';
+          return;
         }
+
+        // Deduplicate matches by name + state + country
+        const seen = new Set();
+        const uniqueMatches = [];
+        for (const item of matches) {
+          const key = `${(item.name || '').toLowerCase()}|${(item.state || '').toLowerCase()}|${(item.country || '').toLowerCase()}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueMatches.push(item);
+          }
+        }
+
+        // Rank matches based on intelligent relevance priority:
+        // 1. Exact city-name match (case-insensitive)
+        // 2. City name starts with query (prefix match)
+        // 3. Substring / partial match
+        // 4. Concise / prominent primary city names
+        // 5. Region / Country match
+        const rankMatches = (items, q) => {
+          const lowerQuery = q.toLowerCase();
+          return items.slice().sort((a, b) => {
+            const score = (item) => {
+              let s = 0;
+              const name = (item.name || '').toLowerCase();
+              const country = (item.country || '').toLowerCase();
+              const state = (item.state || '').toLowerCase();
+
+              if (name === lowerQuery) {
+                s += 2000;
+              } else if (name.startsWith(lowerQuery)) {
+                s += 1000 - Math.min(name.length, 30);
+              } else if (name.includes(lowerQuery)) {
+                s += 500 - Math.min(name.length, 30);
+              }
+
+              if (state === lowerQuery || country === lowerQuery) {
+                s += 100;
+              } else if (state.startsWith(lowerQuery) || country.startsWith(lowerQuery)) {
+                s += 50;
+              }
+              return s;
+            };
+            return score(b) - score(a);
+          });
+        };
+
+        const ranked = rankMatches(uniqueMatches, query).slice(0, 5);
+        autocompleteList.innerHTML = '';
+        selectedIndex = -1;
+
+        if (ranked.length === 0) {
+          autocompleteList.classList.add('hidden');
+          return;
+        }
+
+        ranked.forEach((item, index) => {
+          const row = document.createElement('div');
+          row.className = 'autocomplete-item';
+          row.dataset.index = index;
+          const flag = getCountryFlagImg(item.country);
+          const countryFull = getCountryName(item.country);
+          const stateStr = item.state ? `, ${item.state}` : '';
+          const displayLabel = `${item.name}${stateStr}, ${countryFull}`;
+
+          row.innerHTML = `
+            <span class="city-name-part">${displayLabel}</span>
+            <span class="country-flag-badge">${flag}</span>
+          `;
+
+          row.addEventListener('click', () => {
+            cityInput.value = displayLabel;
+            autocompleteList.classList.add('hidden');
+            autocompleteList.innerHTML = '';
+            const searchLocation = item.state ? `${item.name},${item.state},${item.country}` : `${item.name},${item.country}`;
+            fetchWeatherData(searchLocation);
+          });
+
+          autocompleteList.appendChild(row);
+        });
+        autocompleteList.classList.remove('hidden');
       } catch (err) {
         console.warn('Autocomplete fetch note:', err.message);
       }
@@ -1492,13 +1520,6 @@ themeToggle.addEventListener('click', () => {
     localStorage.setItem('theme', 'dark');
   }
 });
-
-loadTheme();
-
-// Load history and favorites on page load
-loadSearchHistory();
-loadFavorites();
-setupCityAutocomplete();
 
 // Round 5 Setup: Share Report & City Comparison
 function showToast(msg) {
