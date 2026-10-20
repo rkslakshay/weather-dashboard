@@ -77,8 +77,8 @@ This checklist tracks the implementation status of all features, architecture co
 - [x] **Progressive Web App (PWA)**: Complete `manifest.json` with app icons, theme color, and standalone mobile display mode.
 - [x] **Offline Service Worker (`service-worker.js`)**: Cache-first for core static assets and network-first with offline fallback for weather data.
 - [x] **Security Hardening (`vercel.json`)**: Modern HTTP headers including `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy`.
-- [x] **CI/CD Pipeline (`.github/workflows/ci-deploy.yml`)**: Automated syntax validation for JavaScript and automated GitHub Pages deployment.
-- [x] **Multi-Platform Deployment Documentation**: Step-by-step guides for Vercel, Netlify, and GitHub Pages in `README.md`.
+- [x] **CI/CD Pipeline (`.github/workflows/ci-deploy.yml`)**: Automated syntax validation for JavaScript (deployment is handled by Vercel).
+- [x] **Multi-Platform Deployment Documentation**: Step-by-step guides for Vercel and Netlify in `README.md`.
 
 ---
 

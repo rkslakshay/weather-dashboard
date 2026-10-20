@@ -155,7 +155,7 @@ async function fetchWeatherApi(endpoint, params = {}, options = {}) {
         isProxyAvailable = false;
       } else if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        const err = new Error(errData.message || `API error (${res.status})`);
+        const err = new Error(errData.message || errData.error || `API error (${res.status})`);
         err.status = res.status;
         throw err;
       }
@@ -172,7 +172,7 @@ async function fetchWeatherApi(endpoint, params = {}, options = {}) {
 
   if (!directRes.ok) {
     const errData = await directRes.json().catch(() => ({}));
-    const err = new Error(errData.message || `API request failed with status ${directRes.status}`);
+    const err = new Error(errData.message || errData.error || `API request failed with status ${directRes.status}`);
     err.status = directRes.status;
     throw err;
   }

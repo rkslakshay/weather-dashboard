@@ -33,7 +33,7 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
 - **Data & APIs**: OpenWeatherMap API (Current Weather, 5-Day Forecast, Air Pollution, Geo Direct)
 - **Mapping & Charts**: Leaflet.js, OpenStreetMap tiles, Chart.js
 - **Exporting**: html2pdf.js / html2canvas
-- **CI/CD**: GitHub Actions automated syntax check and GitHub Pages deployment workflow
+- **CI/CD**: GitHub Actions automated syntax check; deployed on Vercel
 
 ---
 
@@ -46,13 +46,7 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
    - `OPENWEATHER_API_KEY`: Your OpenWeatherMap API key.
 4. Click **Deploy**. Vercel will automatically serve the static assets and the secure serverless proxy at `/api/weather`.
 
-### Option 2: Deploy to GitHub Pages (Static Hosting)
-1. Go to your repository **Settings $\rightarrow$ Pages**.
-2. Under **Build and deployment**, select **GitHub Actions**.
-3. Push to `main` — the included `.github/workflows/ci-deploy.yml` pipeline will automatically validate the code and deploy your dashboard.
-4. Create a repository secret or provide `config.js` for client-side API authentication.
-
-### Option 3: Deploy to Netlify
+### Option 2: Deploy to Netlify
 1. Connect your repository to [Netlify](https://www.netlify.com).
 2. Set build directory to `.` (root).
 3. Add environment variable `OPENWEATHER_API_KEY` in Netlify dashboard.

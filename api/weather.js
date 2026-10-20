@@ -15,10 +15,22 @@ const ALLOWED_ENDPOINTS = {
 
 const ALLOWED_TILE_LAYERS = ['precipitation_new', 'temp_new', 'clouds_new', 'wind_new'];
 
+const ALLOWED_ORIGIN = 'https://weather-dashboard-five-pearl.vercel.app';
+
+// Each endpoint needs at least one of these parameter groups
+const REQUIRED_PARAMS = {
+  weather: [['q'], ['lat', 'lon'], ['id'], ['zip']],
+  forecast: [['q'], ['lat', 'lon'], ['id'], ['zip']],
+  air_pollution: [['lat', 'lon']],
+  uvi: [['lat', 'lon']],
+  geo: [['q']],
+  'geo/1.0/direct': [['q']]
+};
+
 module.exports = async function handler(req, res) {
   // Set CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
@@ -72,6 +84,16 @@ module.exports = async function handler(req, res) {
       res.setHeader('Content-Type', tileRes.headers.get('content-type') || 'image/png');
       res.setHeader('Cache-Control', tileRes.ok ? 's-maxage=600, stale-while-revalidate=1200, public' : 'no-store');
       res.end(Buffer.from(await tileRes.arrayBuffer()));
+      return;
+    }
+
+    const hasRequired = REQUIRED_PARAMS[endpointKey].some(group => group.every(k => url.searchParams.get(k)));
+    if (!hasRequired) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        error: `Missing parameters for "${endpointKey}". Provide one of: ${REQUIRED_PARAMS[endpointKey].map(g => g.join(' + ')).join(', ')}`
+      }));
       return;
     }
 
