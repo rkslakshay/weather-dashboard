@@ -16,10 +16,10 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
 - 🔍 **City search with autocomplete**: Ranked suggestions with country flags, full keyboard support (`/` to focus, `↑`, `↓`, `Enter`, `Esc`) and screen-reader combobox semantics. Picking a suggestion loads by coordinates, so "Paris, Texas" never becomes Paris, France.
 - 🌡️ **Full unit system**: °C / °F switches every value: temperature, wind (km/h ↔ mph), visibility (km ↔ mi) and pressure (hPa ↔ inHg).
 - 📅 **Accurate 5-day forecast**: Days are grouped in the city's own time zone, with daily highs/lows, rain chance and temperature-range bars.
-- ⏱️ **Next 24 hours**: 3-hour steps with icons, temperatures and rain chance.
+- 🕰️ **Scrollable 5-day timeline**: Scroll or drag a temperature curve through the next 5 days (arrow keys work too). The hero temperature, every highlight tile, air quality and the sky scene all follow the moment you pick.
 - 🧭 **Highlights**: Wind compass with gusts, humidity and dew point, UV index, air quality (US AQI with PM2.5 / PM10 / O₃ / NO₂), feels-like, visibility, pressure, precipitation and a live sunrise–sunset arc.
-- 📈 **Chart & map**: Temperature line with rain-chance bars, and a Leaflet map with rain, cloud, temperature and wind layers (tiles proxied so the API key stays private).
-- 🎨 **Adaptive design**: Light and dark themes (following your system by default) and a sky background that changes with the weather and time of day.
+- 🗺️ **Weather map**: A Leaflet map with rain, cloud, temperature and wind layers (tiles proxied so the API key stays private).
+- 🌅 **Living sky**: A full-width sky scene with sun, moon, stars, clouds, rain, snow, fog and lightning, driven by real conditions and the sun's position. Light and dark themes follow your system by default.
 - ⭐ **Favorites, recent places & city comparison**, plus a **PDF report** of current conditions and the 5-day forecast.
 - 📱 **PWA**: Installable, works offline with the last loaded data, and always fetches fresh code after a deploy.
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skypulse-v2';
+const CACHE_NAME = 'skypulse-v3';
 const APP_SHELL = ['./', './index.html', './style.css', './script.js', './manifest.json', './assets/icon.svg'];
 const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com', 'flagcdn.com'];
 

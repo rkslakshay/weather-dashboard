@@ -8,6 +8,7 @@ const ALLOWED_ENDPOINTS = {
   weather: 'https://api.openweathermap.org/data/2.5/weather',
   forecast: 'https://api.openweathermap.org/data/2.5/forecast',
   air_pollution: 'https://api.openweathermap.org/data/2.5/air_pollution',
+  air_pollution_forecast: 'https://api.openweathermap.org/data/2.5/air_pollution/forecast',
   uvi: 'https://api.openweathermap.org/data/2.5/uvi',
   geo: 'https://api.openweathermap.org/geo/1.0/direct',
   'geo/1.0/direct': 'https://api.openweathermap.org/geo/1.0/direct'
@@ -22,6 +23,7 @@ const REQUIRED_PARAMS = {
   weather: [['q'], ['lat', 'lon'], ['id'], ['zip']],
   forecast: [['q'], ['lat', 'lon'], ['id'], ['zip']],
   air_pollution: [['lat', 'lon']],
+  air_pollution_forecast: [['lat', 'lon']],
   uvi: [['lat', 'lon']],
   geo: [['q']],
   'geo/1.0/direct': [['q']]

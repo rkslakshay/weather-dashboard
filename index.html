@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>SkyPulse — Weather</title>
-  <meta name="description" content="Live weather, hourly and 5-day forecasts, air quality, UV and radar for any city." />
+  <meta name="description" content="Live weather with a scrollable 5-day timeline, air quality, UV and radar for any city." />
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0b1120" />
@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200..800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
   <script>
@@ -28,7 +28,7 @@
     })();
   </script>
 </head>
-<body data-sky="clear-day">
+<body>
 
   <!-- Icon sprite -->
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -40,7 +40,6 @@
       <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
-      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/></symbol>
       <symbol id="i-droplet" viewBox="0 0 24 24"><path d="M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11Z"/></symbol>
       <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/></symbol>
       <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 18a9 9 0 1 1 16 0"/><path d="m12 13 4-4"/><circle cx="12" cy="14" r="1.2"/></symbol>
@@ -48,25 +47,25 @@
       <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/></symbol>
       <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15"/><path d="M5 19 13 11"/></symbol>
       <symbol id="i-sunrise" viewBox="0 0 24 24"><path d="M3 18h18M7 18a5 5 0 0 1 10 0M12 4v5M8.5 8 12 4.5 15.5 8M4.6 11.6l1.4 1.4M19.4 11.6 18 13"/></symbol>
-      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
-      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 20h18M5 16l4-5 4 3 6-8"/></symbol>
       <symbol id="i-map" viewBox="0 0 24 24"><path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14"/></symbol>
       <symbol id="i-compare" viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h13M17 12l4 4-4 4M21 16H8"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
       <symbol id="i-offline" viewBox="0 0 24 24"><path d="m2 2 20 20M8.5 16.5a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5.2-2.7M19 12.9a10 10 0 0 0-2.3-1.6M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 11 5M12 20h.01"/></symbol>
-      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
       <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></symbol>
       <symbol id="i-umbrella" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9ZM12 12v7a2 2 0 0 1-4 0"/></symbol>
+      <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-rewind" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol>
+      <symbol id="i-timeline" viewBox="0 0 24 24"><path d="M3 17c3 0 4-8 7-8s4 6 7 6 3-4 4-4"/><path d="M12 3v18" stroke-dasharray="2 2"/></symbol>
     </defs>
   </svg>
 
-  <div class="sky" aria-hidden="true"><div class="sky-glow"></div></div>
-  <div id="progress" class="progress" aria-hidden="true"></div>
+  <div id="progress" class="progress-bar" aria-hidden="true"></div>
   <a class="skip-link" href="#main">Skip to weather</a>
 
   <!-- ===================== HEADER ===================== -->
-  <header class="topbar">
+  <header id="topbar" class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="./" aria-label="SkyPulse home">
         <img src="assets/icon.svg" alt="" width="28" height="28" />
@@ -108,68 +107,68 @@
     </div>
   </header>
 
-  <main id="main" class="page" tabindex="-1">
+  <!-- ===================== SKY HERO ===================== -->
+  <section id="hero" class="hero is-loading" aria-labelledby="city-name">
+    <div class="scene" aria-hidden="true">
+      <div class="scene-stars"></div>
+      <div class="scene-glow"></div>
+      <div class="scene-sun"></div>
+      <div class="scene-moon"></div>
+      <div class="scene-clouds"><i></i><i></i><i></i><i></i></div>
+      <div class="scene-fog"></div>
+      <div class="scene-rain"></div>
+      <div class="scene-snow"></div>
+      <div class="scene-flash"></div>
+      <div class="scene-shade"></div>
+    </div>
 
-    <!-- Saved & recent places -->
-    <nav id="places" class="places" aria-label="Saved and recent places" hidden>
-      <div id="favorites-chips" class="chip-group"></div>
-      <div id="history-group" class="chip-group">
-        <span class="chip-label"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg>Recent</span>
-        <div id="history-chips" class="chip-row"></div>
-        <button type="button" id="clear-history" class="text-btn">Clear</button>
+    <div class="hero-inner">
+      <div id="offline-banner" class="banner banner-warn" role="status" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-offline"/></svg>
+        <span>You're offline. Showing the last data we loaded.</span>
       </div>
-    </nav>
+      <div id="error-banner" class="banner banner-error" role="alert" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+        <span id="error-text"></span>
+        <button type="button" id="error-retry" class="text-btn">Try again</button>
+        <button type="button" id="error-close" class="icon-btn icon-btn-sm" aria-label="Dismiss">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
 
-    <!-- Status banners -->
-    <div id="offline-banner" class="banner banner-warn" role="status" hidden>
-      <svg class="icon" aria-hidden="true"><use href="#i-offline"/></svg>
-      <span>You're offline. Showing the last data we loaded.</span>
-    </div>
-    <div id="error-banner" class="banner banner-error" role="alert" hidden>
-      <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
-      <span id="error-text"></span>
-      <button type="button" id="error-retry" class="text-btn">Try again</button>
-      <button type="button" id="error-close" class="icon-btn icon-btn-sm" aria-label="Dismiss">
-        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
-      </button>
-    </div>
-
-    <div id="dashboard" class="dashboard is-loading" aria-busy="true">
-
-      <!-- ============ HERO ============ -->
-      <section class="card hero" aria-labelledby="city-name">
-        <div class="hero-head">
-          <div class="hero-place">
-            <h1 id="city-name" class="hero-city"><span class="sk sk-title"></span></h1>
-            <p class="hero-meta">
-              <span id="local-time"><span class="sk sk-line"></span></span>
-            </p>
-          </div>
-          <div class="hero-actions">
-            <button type="button" id="favorite-btn" class="icon-btn" aria-pressed="false" aria-label="Save to favorites" title="Save to favorites">
-              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
-            </button>
-            <button type="button" id="export-pdf-btn" class="icon-btn" aria-label="Download PDF report" title="Download PDF report">
-              <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-            </button>
-          </div>
+      <div class="hero-top">
+        <div class="hero-place">
+          <h1 id="city-name" class="hero-city"><span class="sk sk-title"></span></h1>
+          <p id="local-time" class="hero-meta"><span class="sk sk-line"></span></p>
         </div>
-
-        <div class="hero-body">
-          <div class="hero-temp-block">
-            <div class="hero-temp"><span id="temperature">--</span><span class="hero-deg">°</span></div>
-            <p id="weather-condition" class="hero-condition">&nbsp;</p>
-            <p class="hero-range">
-              <span>H <b id="temp-high">--</b></span>
-              <span>L <b id="temp-low">--</b></span>
-              <span>Feels like <b id="feels-like">--</b></span>
-            </p>
-          </div>
-          <img id="weather-icon" class="hero-icon" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="" width="160" height="160" />
+        <div class="hero-actions">
+          <button type="button" id="favorite-btn" class="glass-btn" aria-pressed="false" aria-label="Save to favorites" title="Save to favorites">
+            <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+          </button>
+          <button type="button" id="export-pdf-btn" class="glass-btn" aria-label="Download PDF report" title="Download PDF report">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+          </button>
         </div>
+      </div>
 
+      <div class="hero-main">
+        <div id="moment-chip" class="moment-chip" hidden>
+          <span id="moment-label"></span>
+          <button type="button" id="back-to-now" class="moment-now">
+            <svg class="icon" aria-hidden="true"><use href="#i-rewind"/></svg>Back to now
+          </button>
+        </div>
+        <div class="hero-temp" aria-live="polite"><span id="temperature">--</span><span class="hero-deg">°</span></div>
+        <p class="hero-condition">
+          <img id="weather-icon" class="wx-icon hero-icon" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="" width="44" height="44" />
+          <span id="weather-condition">&nbsp;</span>
+        </p>
+        <p class="hero-range">
+          <span>H <b id="temp-high">--</b></span>
+          <span>L <b id="temp-low">--</b></span>
+          <span>Feels like <b id="feels-like">--</b></span>
+        </p>
         <p id="summary" class="hero-summary"><span class="sk sk-line wide"></span></p>
-
         <div id="advisory" class="advisory" role="note" hidden>
           <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
           <div>
@@ -177,30 +176,45 @@
             <p id="advisory-text"></p>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </section>
 
-      <!-- ============ 5-DAY ============ -->
-      <section class="card daily" aria-labelledby="daily-title">
-        <h2 id="daily-title" class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>5-day forecast</h2>
-        <ol id="daily-list" class="daily-list">
-          <li class="sk sk-row"></li><li class="sk sk-row"></li><li class="sk sk-row"></li><li class="sk sk-row"></li><li class="sk sk-row"></li>
-        </ol>
-      </section>
+  <main id="main" class="page" tabindex="-1">
 
-      <!-- ============ HOURLY ============ -->
-      <section class="card hourly" aria-labelledby="hourly-title">
-        <div class="card-head">
-          <h2 id="hourly-title" class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>Next 24 hours</h2>
-          <span class="card-note">3-hour steps</span>
+    <!-- ============ TIMELINE ============ -->
+    <section class="card timeline" aria-labelledby="timeline-title">
+      <div class="card-head">
+        <h2 id="timeline-title" class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-timeline"/></svg>Next 5 days</h2>
+        <div class="tl-controls">
+          <button type="button" id="tl-prev" class="icon-btn icon-btn-md" aria-label="3 hours earlier">
+            <svg class="icon" aria-hidden="true"><use href="#i-chev-left"/></svg>
+          </button>
+          <button type="button" id="tl-now" class="btn btn-quiet">Now</button>
+          <button type="button" id="tl-next" class="icon-btn icon-btn-md" aria-label="3 hours later">
+            <svg class="icon" aria-hidden="true"><use href="#i-chev-right"/></svg>
+          </button>
         </div>
-        <ol id="hourly-list" class="hourly-list" tabindex="0" aria-label="Hourly forecast, scrollable">
-          <li class="sk sk-tile"></li><li class="sk sk-tile"></li><li class="sk sk-tile"></li><li class="sk sk-tile"></li><li class="sk sk-tile"></li><li class="sk sk-tile"></li>
-        </ol>
-      </section>
+      </div>
+      <div class="tl-frame">
+        <div id="tl-scroller" class="tl-scroller" tabindex="0" role="slider"
+             aria-label="Forecast time. Use the arrow keys to move through the next 5 days."
+             aria-valuemin="0" aria-valuemax="120" aria-valuenow="0" aria-valuetext="Now">
+          <div id="tl-track" class="tl-track"><div class="sk sk-timeline"></div></div>
+        </div>
+        <div class="tl-cursor" aria-hidden="true"><span id="tl-cursor-label">Now</span></div>
+      </div>
+      <p class="tl-hint">Scroll or drag the timeline. Everything on the page follows it.</p>
+    </section>
+
+    <div class="dashboard">
 
       <!-- ============ HIGHLIGHTS ============ -->
       <section class="highlights" aria-labelledby="highlights-title">
-        <h2 id="highlights-title" class="visually-hidden">Today's highlights</h2>
+        <div class="highlights-head">
+          <h2 id="highlights-title" class="card-title">Conditions</h2>
+          <span id="highlights-when" class="pill">Now</span>
+        </div>
 
         <article class="card tile tile-wind">
           <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-wind"/></svg>Wind</h3>
@@ -208,20 +222,16 @@
             <div>
               <p class="tile-value"><span id="wind-speed">--</span> <small id="wind-unit">km/h</small></p>
               <p class="tile-sub">Gusts <span id="wind-gust">--</span></p>
-              <p class="tile-sub" id="wind-dir">--</p>
+              <p class="tile-sub" id="wind-dir">&nbsp;</p>
             </div>
             <svg class="compass" viewBox="0 0 100 100" aria-hidden="true">
               <circle cx="50" cy="50" r="44" class="compass-ring"/>
-              <g class="compass-ticks">
-                <path d="M50 8v6M50 86v6M8 50h6M86 50h6"/>
-              </g>
+              <g class="compass-ticks"><path d="M50 8v6M50 86v6M8 50h6M86 50h6"/></g>
               <text x="50" y="25" class="compass-label">N</text>
               <text x="79" y="54" class="compass-label">E</text>
               <text x="50" y="83" class="compass-label">S</text>
               <text x="21" y="54" class="compass-label">W</text>
-              <g id="wind-needle" class="compass-needle">
-                <path d="M50 30 56 58 50 54 44 58Z"/>
-              </g>
+              <g id="wind-needle" class="compass-needle"><path d="M50 30 56 58 50 54 44 58Z"/></g>
             </svg>
           </div>
         </article>
@@ -234,10 +244,9 @@
         </article>
 
         <article class="card tile">
-          <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>UV index</h3>
-          <p class="tile-value"><span id="uv-index">--</span> <small id="uv-category"></small></p>
-          <div class="scale scale-uv" aria-hidden="true"><span id="uv-marker" class="scale-marker"></span></div>
-          <p class="tile-sub" id="uv-advice">&nbsp;</p>
+          <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-umbrella"/></svg>Precipitation</h3>
+          <p class="tile-value"><span id="precip-chance">--</span><small>%</small></p>
+          <p class="tile-sub" id="precip-note">&nbsp;</p>
         </article>
 
         <article class="card tile tile-aqi">
@@ -245,6 +254,13 @@
           <p class="tile-value"><span id="aqi-value">--</span> <small id="aqi-category"></small></p>
           <div class="scale scale-aqi" aria-hidden="true"><span id="aqi-marker" class="scale-marker"></span></div>
           <dl id="aqi-pollutants" class="pollutants"></dl>
+        </article>
+
+        <article class="card tile">
+          <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>UV index</h3>
+          <p class="tile-value"><span id="uv-index">--</span> <small id="uv-category"></small></p>
+          <div class="scale scale-uv" aria-hidden="true"><span id="uv-marker" class="scale-marker"></span></div>
+          <p class="tile-sub" id="uv-advice">&nbsp;</p>
         </article>
 
         <article class="card tile">
@@ -265,14 +281,8 @@
           <p class="tile-sub" id="pressure-note">&nbsp;</p>
         </article>
 
-        <article class="card tile">
-          <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-umbrella"/></svg>Precipitation</h3>
-          <p class="tile-value"><span id="precip-chance">--</span><small>%</small></p>
-          <p class="tile-sub" id="precip-note">&nbsp;</p>
-        </article>
-
         <article class="card tile tile-sun">
-          <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-sunrise"/></svg>Sun</h3>
+          <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-sunrise"/></svg>Sun today</h3>
           <svg class="sun-arc" viewBox="0 0 300 130" aria-hidden="true">
             <defs>
               <linearGradient id="sunGrad" x1="0" x2="1">
@@ -293,19 +303,28 @@
         </article>
       </section>
 
-      <!-- ============ CHART ============ -->
-      <section class="card chart-card" aria-labelledby="chart-title">
-        <div class="card-head">
-          <h2 id="chart-title" class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>Temperature &amp; rain chance</h2>
-          <div class="legend" aria-hidden="true">
-            <span><i class="legend-line"></i>Temperature</span>
-            <span><i class="legend-bar"></i>Rain chance</span>
+      <div class="side">
+        <!-- ============ DAILY ============ -->
+        <section class="card daily" aria-labelledby="daily-title">
+          <h2 id="daily-title" class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>5-day forecast</h2>
+          <ol id="daily-list" class="daily-list">
+            <li class="sk sk-row"></li><li class="sk sk-row"></li><li class="sk sk-row"></li><li class="sk sk-row"></li><li class="sk sk-row"></li>
+          </ol>
+        </section>
+
+        <!-- ============ PLACES ============ -->
+        <nav id="places" class="card places" aria-label="Saved and recent places" hidden>
+          <div id="favorites-group" class="chip-group">
+            <span class="chip-label"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>Favorites</span>
+            <div id="favorites-chips" class="chip-row"></div>
           </div>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="temp-chart" role="img" aria-label="Temperature and rain chance for the next 5 days"></canvas>
-        </div>
-      </section>
+          <div id="history-group" class="chip-group">
+            <span class="chip-label"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg>Recent</span>
+            <div id="history-chips" class="chip-row"></div>
+            <button type="button" id="clear-history" class="text-btn">Clear</button>
+          </div>
+        </nav>
+      </div>
 
       <!-- ============ RADAR ============ -->
       <section class="card radar" aria-labelledby="radar-title">
@@ -328,12 +347,11 @@
         </div>
         <form id="compare-form" class="compare-form" autocomplete="off">
           <label for="compare-input" class="visually-hidden">City to compare</label>
-          <input type="text" id="compare-input" class="input" placeholder="Compare with… e.g. London" maxlength="80" />
+          <input type="text" id="compare-input" class="input" placeholder="London" maxlength="80" />
           <button type="submit" id="compare-btn" class="btn btn-primary">Compare</button>
         </form>
         <div id="compare-result" class="compare-result" aria-live="polite" hidden></div>
       </section>
-
     </div>
 
     <footer class="footer">
@@ -346,7 +364,6 @@
   <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
   <script src="config.js" defer onerror="this.remove()"></script>
   <script src="script.js" defer></script>
