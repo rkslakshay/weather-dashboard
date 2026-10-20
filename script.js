@@ -165,13 +165,17 @@ const units = {
   deg: (c) => `${units.temp(c)}°`,
   wind: (ms) => (isNum(ms) ? Math.round(state.units === 'metric' ? ms * 3.6 : ms * 2.237) : '--'),
   windUnit: () => (state.units === 'metric' ? 'km/h' : 'mph'),
-  distance: (m) => {
-    if (!isNum(m)) return '--';
-    if (m >= 10000) return state.units === 'metric' ? '10+' : '6+';
-    const v = state.units === 'metric' ? m / 1000 : m / 1609.34;
-    return v < 10 ? v.toFixed(1) : Math.round(v);
+  // Returns [value, unit]; very short distances (dense fog) switch to metres or feet
+  distanceParts: (m) => {
+    const metric = state.units === 'metric';
+    if (!isNum(m)) return ['--', metric ? 'km' : 'mi'];
+    if (m >= 10000) return [metric ? '10+' : '6+', metric ? 'km' : 'mi'];
+    if (metric && m < 1000) return [Math.round(m / 10) * 10, 'm'];
+    if (!metric && m < 160) return [Math.round((m * 3.281) / 10) * 10, 'ft'];
+    const v = metric ? m / 1000 : m / 1609.34;
+    return [v < 10 ? v.toFixed(1) : Math.round(v), metric ? 'km' : 'mi'];
   },
-  distanceUnit: () => (state.units === 'metric' ? 'km' : 'mi'),
+  distance: (m) => units.distanceParts(m).join(' '),
   pressure: (hpa) => (isNum(hpa) ? (state.units === 'metric' ? Math.round(hpa) : (hpa * 0.02953).toFixed(2)) : '--'),
   pressureUnit: () => (state.units === 'metric' ? 'hPa' : 'inHg'),
   rain: (mm) => (state.units === 'metric' ? `${mm.toFixed(1)} mm` : `${(mm / 25.4).toFixed(2)} in`)
@@ -524,7 +528,7 @@ function buildAdvisory(p) {
   }
   if (p.temp <= 0) return { title: 'Freezing temperatures', text: 'Watch for ice on roads and paths, and dress in warm layers.' };
   if (wind >= 14) return { title: 'Strong wind', text: `Gusts up to ${units.wind(wind)} ${units.windUnit()}. Secure loose objects and take care on bikes.` };
-  if (isNum(p.vis) && p.vis <= 1000) return { title: 'Low visibility', text: `Visibility is ${units.distance(p.vis)} ${units.distanceUnit()}. Drive slowly with low-beam lights.` };
+  if (isNum(p.vis) && p.vis <= 1000) return { title: 'Low visibility', text: `Visibility is ${units.distance(p.vis)}. Drive slowly with low-beam lights.` };
   return null;
 }
 
@@ -550,9 +554,11 @@ function buildSummary(t, p, isNow) {
     if (day) parts.push(`High ${units.deg(day.max)}, low ${units.deg(day.min)}.`);
     const next = state.points.slice(0, 9);
     const peak = Math.max(0, ...next.map((x) => x.pop || 0));
-    const isSnow = next.some((x) => x.weather.main === 'Snow');
-    const kind = isSnow ? 'snow' : 'rain';
-    if (peak >= 0.6) parts.push(`${capitalize(kind)} is likely in the next 24 hours (${Math.round(peak * 100)}%).`);
+    const hasSnow = next.some((x) => x.weather.main === 'Snow');
+    const hasRain = next.some((x) => ['Rain', 'Drizzle', 'Thunderstorm'].includes(x.weather.main));
+    const kind = hasSnow && hasRain ? 'rain and snow' : hasSnow ? 'snow' : 'rain';
+    const verb = hasSnow && hasRain ? 'are' : 'is';
+    if (peak >= 0.6) parts.push(`${capitalize(kind)} ${verb} likely in the next 24 hours (${Math.round(peak * 100)}%).`);
     else if (peak >= 0.25) parts.push(`Some chance of ${kind} in the next 24 hours (${Math.round(peak * 100)}%).`);
     else parts.push(`No ${kind} expected in the next 24 hours.`);
     return parts.join(' ');
@@ -944,8 +950,7 @@ function renderConditions(p, isNow) {
     : diff <= -2 ? 'Wind makes it feel cooler.'
     : 'Close to the actual temperature.';
 
-  el.visibility.textContent = units.distance(p.vis);
-  el.visibilityUnit.textContent = units.distanceUnit();
+  [el.visibility.textContent, el.visibilityUnit.textContent] = units.distanceParts(p.vis);
   el.visibilityNote.textContent = !isNum(p.vis) ? 'Not reported'
     : p.vis >= 10000 ? 'Perfectly clear.'
     : p.vis >= 5000 ? 'Good visibility.'
@@ -1580,7 +1585,7 @@ el.pdfBtn.addEventListener('click', async () => {
     ['Humidity', `${cur.main.humidity}%`],
     ['Wind', `${units.wind(cur.wind.speed)} ${units.windUnit()}${isNum(cur.wind.deg) ? ` from ${cardinal(cur.wind.deg)}` : ''}`],
     ['Pressure', `${units.pressure(cur.main.pressure)} ${units.pressureUnit()}`],
-    ['Visibility', `${units.distance(cur.visibility)} ${units.distanceUnit()}`],
+    ['Visibility', units.distance(cur.visibility)],
     ['UV index', isNum(state.uvi) ? Math.round(state.uvi) : 'Unavailable'],
     ['Air quality (US AQI)', aqi ?? 'Unavailable'],
     ['Sunrise / sunset', `${fmtTime(cur.sys.sunrise)} / ${fmtTime(cur.sys.sunset)}`]
