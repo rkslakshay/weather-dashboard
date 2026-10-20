@@ -13,6 +13,8 @@ const ALLOWED_ENDPOINTS = {
   'geo/1.0/direct': 'https://api.openweathermap.org/geo/1.0/direct'
 };
 
+const ALLOWED_TILE_LAYERS = ['precipitation_new', 'temp_new', 'clouds_new', 'wind_new'];
+
 module.exports = async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -38,16 +40,40 @@ module.exports = async function handler(req, res) {
     const endpointKey = url.searchParams.get('endpoint') || 'weather';
     const targetBaseUrl = ALLOWED_ENDPOINTS[endpointKey];
 
-    if (!targetBaseUrl) {
+    if (!targetBaseUrl && endpointKey !== 'tile') {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ 
-        error: `Invalid endpoint "${endpointKey}". Allowed: ${Object.keys(ALLOWED_ENDPOINTS).join(', ')}` 
+        error: `Invalid endpoint "${endpointKey}". Allowed: ${[...Object.keys(ALLOWED_ENDPOINTS), 'tile'].join(', ')}` 
       }));
       return;
     }
 
-    const apiKey = process.env.OPENWEATHER_API_KEY || process.env.API_KEY || '5ff7e87116093c9b53407f7a546326c9';
+    const apiKey = process.env.OPENWEATHER_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Server is missing the OPENWEATHER_API_KEY environment variable.' }));
+      return;
+    }
+
+    // Map tiles are proxied as images so the key never reaches the browser
+    if (endpointKey === 'tile') {
+      const layer = url.searchParams.get('layer');
+      const [z, x, y] = ['z', 'x', 'y'].map(k => url.searchParams.get(k));
+      if (!ALLOWED_TILE_LAYERS.includes(layer) || ![z, x, y].every(v => /^\d+$/.test(v || ''))) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Invalid tile request.' }));
+        return;
+      }
+      const tileRes = await fetch(`https://tile.openweathermap.org/map/${layer}/${z}/${x}/${y}.png?appid=${apiKey}`);
+      res.statusCode = tileRes.status;
+      res.setHeader('Content-Type', tileRes.headers.get('content-type') || 'image/png');
+      res.setHeader('Cache-Control', tileRes.ok ? 's-maxage=600, stale-while-revalidate=1200, public' : 'no-store');
+      res.end(Buffer.from(await tileRes.arrayBuffer()));
+      return;
+    }
 
     // Build target query string
     const targetUrl = new URL(targetBaseUrl);

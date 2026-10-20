@@ -75,7 +75,7 @@ const unitLabel = document.getElementById('unit-label');
 const feelsUnit = document.getElementById('feels-unit');
 
 // Read the API Key from config.js (fallback for direct client-side requests)
-const API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : '12f21f922d4f7556ba28c3bb4615ada2';
+const API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : '';
 
 // --- Production & Caching Configuration ---
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
@@ -792,7 +792,9 @@ function updateRadarTileLayer(layerType) {
   };
 
   const owmLayer = layerMap[layerType] || 'precipitation_new';
-  const tileUrl = `https://tile.openweathermap.org/map/${owmLayer}/{z}/{x}/{y}.png?appid=${API_KEY}`;
+  const tileUrl = isProxyAvailable
+    ? `/api/weather?endpoint=tile&layer=${owmLayer}&z={z}&x={x}&y={y}`
+    : `https://tile.openweathermap.org/map/${owmLayer}/{z}/{x}/{y}.png?appid=${API_KEY}`;
 
   radarOverlayLayer = L.tileLayer(tileUrl, {
     opacity: 0.65,
