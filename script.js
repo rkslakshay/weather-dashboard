@@ -659,9 +659,21 @@ function renderSky(t, p) {
 /* ==========================================================================
    Timeline
    ========================================================================== */
-const TL = { height: 206, curveTop: 92, curveBottom: 142, barBase: 178, barMax: 24 };
+const TL = { height: 192, iconY: 28, curveTop: 90, curveBottom: 136, barBase: 162, barMax: 20 };
 let tlGeom = null;   // { t0, t1, width, x(t), y(temp) }
 let tlFrame = 0;
+
+// Temperature colour scale shared by the curve stroke, its fill and the cursor dot
+const TEMP_COLORS = [[-10, '#818cf8'], [0, '#60a5fa'], [12, '#34d399'], [22, '#fbbf24'], [30, '#fb923c'], [38, '#ef4444']];
+function tempColor(c) {
+  if (c <= TEMP_COLORS[0][0]) return TEMP_COLORS[0][1];
+  for (let i = 0; i < TEMP_COLORS.length - 1; i++) {
+    const [t1, c1] = TEMP_COLORS[i];
+    const [t2, c2] = TEMP_COLORS[i + 1];
+    if (c <= t2) return mixHex(c1, c2, (c - t1) / (t2 - t1));
+  }
+  return TEMP_COLORS[TEMP_COLORS.length - 1][1];
+}
 
 function renderTimeline() {
   const pts = state.points;
@@ -675,28 +687,36 @@ function renderTimeline() {
   const y = (temp) => TL.curveBottom - ((temp - lo) / Math.max(hi - lo, 1)) * (TL.curveBottom - TL.curveTop);
   tlGeom = { t0, t1, width, x, y };
 
-  const parts = [];
+  const stops = [0, 0.5, 1].map((f) => `<stop offset="${f}" stop-color="${tempColor(hi - (hi - lo) * f)}"/>`).join('');
+  const parts = [`
+    <defs>
+      <linearGradient id="tl-stroke" gradientUnits="userSpaceOnUse" x1="0" y1="${TL.curveTop}" x2="0" y2="${TL.curveBottom}">${stops}</linearGradient>
+      <linearGradient id="tl-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${tempColor(hi)}" stop-opacity=".22"/>
+        <stop offset="1" stop-color="${tempColor(lo)}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>`];
 
-  // Night bands from (approximate) sunset to sunrise for each day
+  // Night shading from (approximate) sunset to sunrise
   const { sunrise, sunset } = state.current.sys;
   if (sunrise && sunset) {
     for (let k = -1; k <= 6; k++) {
       const a = clamp(x(sunset + k * 86400), 0, width);
       const b = clamp(x(sunrise + (k + 1) * 86400), 0, width);
-      if (b > a) parts.push(`<rect class="tl-night" x="${a.toFixed(1)}" y="0" width="${(b - a).toFixed(1)}" height="${TL.height}" rx="0"/>`);
+      if (b > a) parts.push(`<rect class="tl-night" x="${a.toFixed(1)}" y="24" width="${(b - a).toFixed(1)}" height="${TL.barBase - 24}" rx="8"/>`);
     }
   }
 
-  // Day boundaries at local midnight
-  const localSecs = (t0 + tzOffset()) % 86400;
-  parts.push(`<text class="tl-day" x="0" y="16">Today</text>`);
-  for (let m = t0 - localSecs + 86400; m < t1; m += 86400) {
+  // Day labels at local midnight; "Today" only when there's room before the first one
+  const firstMidnight = t0 - ((t0 + tzOffset()) % 86400) + 86400;
+  if (x(firstMidnight) > 70) parts.push('<text class="tl-day" x="0" y="14">Today</text>');
+  for (let m = firstMidnight; m < t1; m += 86400) {
     const mx = x(m).toFixed(1);
-    parts.push(`<line class="tl-daysep" x1="${mx}" y1="0" x2="${mx}" y2="${TL.height}"/>`);
-    parts.push(`<text class="tl-day" x="${(+mx + 8).toFixed(1)}" y="16">${esc(fmtDay(m))} <tspan class="tl-date">${esc(fmtDay(m, { day: 'numeric' }))}</tspan></text>`);
+    parts.push(`<line class="tl-daysep" x1="${mx}" y1="0" x2="${mx}" y2="${TL.barBase}"/>`);
+    parts.push(`<text class="tl-day" x="${(+mx + 8).toFixed(1)}" y="14">${esc(fmtDay(m))}<tspan class="tl-date" dx="5">${esc(fmtDay(m, { day: 'numeric' }))}</tspan></text>`);
   }
 
-  // Curve and filled area
+  // Curve and soft fill
   const xs = pts.map((p) => x(p.dt));
   const ys = pts.map((p) => y(p.temp));
   let d = `M${xs[0].toFixed(1)},${ys[0].toFixed(1)}`;
@@ -707,22 +727,22 @@ function renderTimeline() {
   }
   parts.push(`<path class="tl-area" d="${d} L${width},${TL.barBase} L0,${TL.barBase}Z"/>`);
   parts.push(`<path class="tl-curve" d="${d}"/>`);
+  parts.push(`<line class="tl-baseline" x1="0" y1="${TL.barBase}" x2="${width}" y2="${TL.barBase}"/>`);
 
   // Per-reading details; skip labels that would collide with the previous one
   let lastLabelX = -Infinity;
   pts.forEach((p, i) => {
     const px = xs[i];
     const h = Math.round((p.pop || 0) * TL.barMax);
-    if (h > 0) parts.push(`<rect class="tl-bar" x="${(px - 9).toFixed(1)}" y="${TL.barBase - h}" width="18" height="${h}" rx="3"/>`);
+    if (h > 1) parts.push(`<rect class="tl-bar" x="${(px - 7).toFixed(1)}" y="${TL.barBase - h}" width="14" height="${h}" rx="3"/>`);
     if (px - lastLabelX < 46) return;
     lastLabelX = px;
-    parts.push(`<image href="${iconUrl(p.weather)}" x="${(px - 14).toFixed(1)}" y="26" width="28" height="28"/>`);
-    parts.push(`<text class="tl-temp" x="${px.toFixed(1)}" y="${(ys[i] - 10).toFixed(1)}">${units.deg(p.temp)}</text>`);
-    parts.push(`<circle class="tl-point" cx="${px.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3"/>`);
+    parts.push(`<image href="${iconUrl(p.weather)}" x="${(px - 13).toFixed(1)}" y="${TL.iconY}" width="26" height="26"/>`);
+    parts.push(`<text class="tl-temp" x="${px.toFixed(1)}" y="${(ys[i] - 11).toFixed(1)}">${units.deg(p.temp)}</text>`);
     if (p.pop >= 0.2) parts.push(`<text class="tl-pop" x="${px.toFixed(1)}" y="${TL.barBase - h - 4}">${Math.round(p.pop * 100)}%</text>`);
-    parts.push(`<text class="tl-hour" x="${px.toFixed(1)}" y="${TL.height - 6}">${i === 0 ? 'Now' : esc(fmtHour(p.dt))}</text>`);
+    parts.push(`<text class="tl-hour" x="${px.toFixed(1)}" y="${TL.height - 8}">${i === 0 ? 'Now' : esc(fmtHour(p.dt))}</text>`);
   });
-  parts.push('<circle id="tl-dot" class="tl-dot" r="7" cx="0" cy="0"/>');
+  parts.push('<g id="tl-dot"><circle class="tl-halo" r="12"/><circle class="tl-dot" r="5.5"/></g>');
 
   el.tlTrack.innerHTML = `
     <div class="tl-spacer"></div>
@@ -732,11 +752,11 @@ function renderTimeline() {
   sizeTimeline();
 }
 
-// The cursor sits mid-way on wide screens and further left on phones, so more of the future fits
-let cursorFrac = 0.5;
+// The cursor sits near the left so most of the visible timeline is the future
+let cursorFrac = 0.25;
 function sizeTimeline() {
   const w = el.tlScroller.clientWidth;
-  cursorFrac = w < 600 ? 0.3 : 0.5;
+  cursorFrac = w < 600 ? 0.22 : 0.25;
   const [before, after] = el.tlTrack.querySelectorAll('.tl-spacer');
   before.style.width = `${Math.round(w * cursorFrac)}px`;
   after.style.width = `${Math.round(w * (1 - cursorFrac))}px`;
@@ -914,8 +934,8 @@ function renderMoment() {
   el.tlScroller.setAttribute('aria-valuetext', `${isNow ? 'Now' : `${fmtDay(t, { weekday: 'long' })} ${fmtTime(t)}`}, ${units.deg(p.temp)}, ${p.weather.description}`);
   const dot = document.getElementById('tl-dot');
   if (dot && tlGeom) {
-    dot.setAttribute('cx', tlGeom.x(t).toFixed(1));
-    dot.setAttribute('cy', tlGeom.y(p.temp).toFixed(1));
+    dot.setAttribute('transform', `translate(${tlGeom.x(t).toFixed(1)} ${tlGeom.y(p.temp).toFixed(1)})`);
+    dot.style.setProperty('--dot', tempColor(p.temp));
   }
 
   // Highlights and daily list
