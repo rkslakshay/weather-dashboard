@@ -1,12 +1,12 @@
 {
-  "name": "Weather Dashboard - Live Forecast & Radar",
-  "short_name": "WeatherDash",
-  "description": "Interactive real-time weather forecasts, smart autocomplete, interactive precipitation radar, and city comparisons.",
-  "start_url": "./index.html",
+  "name": "SkyPulse Weather",
+  "short_name": "SkyPulse",
+  "description": "Live weather, hourly and 5-day forecasts, air quality, UV and radar for any city.",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#1e293b",
-  "orientation": "portrait-primary",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "orientation": "any",
   "icons": [
     {
       "src": "assets/icon.svg",

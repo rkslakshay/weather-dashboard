@@ -1,84 +1,59 @@
-const CACHE_NAME = 'weather-dashboard-v1';
-const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './style.css',
-  './script.js',
-  './manifest.json',
-  './assets/icon.svg'
-];
+const CACHE_NAME = 'skypulse-v2';
+const APP_SHELL = ['./', './index.html', './style.css', './script.js', './manifest.json', './assets/icon.svg'];
+const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com', 'flagcdn.com'];
 
-// Install: Cache static shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
   );
 });
 
-// Activate: Purge old cache versions
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch: Smart network-first for weather API, cache-first for static assets
+function networkFirst(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      }
+      return response;
+    })
+    .catch(() => caches.match(request).then((hit) => hit || Promise.reject(new Error('offline'))));
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then((hit) => hit || fetch(request).then((response) => {
+    if (response.ok || response.type === 'opaque') {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  }));
+}
+
 self.addEventListener('fetch', (event) => {
-  const requestUrl = new URL(event.request.url);
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
 
-  // Ignore non-GET requests
-  if (event.request.method !== 'GET') return;
+  // Map tiles change constantly and are numerous: never cache them here
+  if (url.searchParams.get('endpoint') === 'tile' || url.hostname === 'tile.openstreetmap.org') return;
 
-  // Handle weather API calls (either proxy /api/weather or direct openweathermap)
-  const isApiRequest = requestUrl.pathname.includes('/api/weather') || 
-                       requestUrl.hostname.includes('openweathermap.org');
-
-  if (isApiRequest) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+  // Weather data and the app itself: always try the network so deploys and data are fresh
+  if (url.pathname.startsWith('/api/weather') || url.origin === self.location.origin) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  // Handle static assets & CDNs
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch fresh version in background for CDN/static updates
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.ok) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => {/* Ignore background fetch failures when offline */});
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'opaque') {
-          return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
-        return networkResponse;
-      });
-    })
-  );
+  // Version-pinned libraries, fonts, icons and flags never change: serve from cache
+  if (CDN_HOSTS.includes(url.hostname)) {
+    event.respondWith(cacheFirst(request));
+  }
 });

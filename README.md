@@ -12,16 +12,16 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
 
 ## 📋 Highlights & Key Features
 
-- 🏙️ **Default City on Load**: Delhi, India loads automatically on initial launch without manual interaction.
-- 🔍 **Smart City Autocomplete**: Intelligent ranking (Exact $\rightarrow$ Prefix $\rightarrow$ Fuzzy/Substring $\rightarrow$ Region) displaying up to 5 top cities with cross-platform country flags and keyboard navigation (`↑`, `↓`, `Enter`, `Esc`).
-- ⚡ **Dual-Mode API & TTL Caching**: LocalStorage + in-memory smart caching (10-min TTL) eliminates redundant API requests and avoids rate limits. Seamlessly falls back between serverless proxy and direct client calls.
-- 📱 **Progressive Web App (PWA)**: Installable on desktop and mobile with `manifest.json` and `service-worker.js` offline shell caching.
-- 🌡️ **Comprehensive Meteorology**: Live temperature, feels-like, humidity, wind speed, barometric pressure, visibility, UV index, and dew point.
-- 🧭 **Atmospheric Dynamics**: Rotating wind direction compass, pressure trend tracker (Rising/Falling/Steady), and dynamic weather activity advisor.
-- 📈 **Visual Analytics & Radar**: Smooth Chart.js temperature curve, animated sun progression arc, local timezone clock, and an interactive Leaflet radar map with Precipitation, Temperature, Clouds, and Wind layers.
-- 🌬️ **Air Quality Index (AQI)**: Real-time EPA-standard PM2.5 air quality tracking with color-coded fill bar and category badge.
-- ⏱️ **AccuWeather-style Hourly Forecast**: Next 24-hour strip showing icon, temperature, feels-like, precipitation probability, and wind speed per slot.
-- ⚖️ **Multi-City Comparison & PDF Export**: Compare two cities side-by-side and export executive reports in PDF with a single click.
+- 🏙️ **Remembers your city**: Reopens the last place you viewed (Delhi on first visit).
+- 🔍 **City search with autocomplete**: Ranked suggestions with country flags, full keyboard support (`/` to focus, `↑`, `↓`, `Enter`, `Esc`) and screen-reader combobox semantics. Picking a suggestion loads by coordinates, so "Paris, Texas" never becomes Paris, France.
+- 🌡️ **Full unit system**: °C / °F switches every value: temperature, wind (km/h ↔ mph), visibility (km ↔ mi) and pressure (hPa ↔ inHg).
+- 📅 **Accurate 5-day forecast**: Days are grouped in the city's own time zone, with daily highs/lows, rain chance and temperature-range bars.
+- ⏱️ **Next 24 hours**: 3-hour steps with icons, temperatures and rain chance.
+- 🧭 **Highlights**: Wind compass with gusts, humidity and dew point, UV index, air quality (US AQI with PM2.5 / PM10 / O₃ / NO₂), feels-like, visibility, pressure, precipitation and a live sunrise–sunset arc.
+- 📈 **Chart & map**: Temperature line with rain-chance bars, and a Leaflet map with rain, cloud, temperature and wind layers (tiles proxied so the API key stays private).
+- 🎨 **Adaptive design**: Light and dark themes (following your system by default) and a sky background that changes with the weather and time of day.
+- ⭐ **Favorites, recent places & city comparison**, plus a **PDF report** of current conditions and the 5-day forecast.
+- 📱 **PWA**: Installable, works offline with the last loaded data, and always fetches fresh code after a deploy.
 
 ---
 
@@ -68,8 +68,8 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
    };
    ```
    *(Note: `config.js` is excluded from git via `.gitignore`)*
-4. Open `index.html` with VS Code Live Server or any browser:
+4. Start the local dev server. It serves the site and runs the `/api/weather` proxy just like Vercel. It reads the key from `OPENWEATHER_API_KEY`, a `.env` file, or your `config.js`:
    ```bash
-   npx serve .
-   # or simply double-click index.html
+   node dev-server.js
    ```
+   Then open http://localhost:3000. Opening `index.html` through any other static server also works: without the proxy, the app calls OpenWeatherMap directly with the `config.js` key.
