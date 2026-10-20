@@ -365,7 +365,15 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
-  <script src="config.js" defer onerror="this.remove()"></script>
+  <script>
+    // config.js holds a key for local testing only and is never deployed, so only request it locally
+    (function () {
+      var h = location.hostname;
+      if (h === '' || h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || /\.localhost$/.test(h)) {
+        document.write('<script src="config.js" onerror="this.remove()"><\/script>');
+      }
+    })();
+  </script>
   <script src="script.js" defer></script>
 </body>
 </html>
