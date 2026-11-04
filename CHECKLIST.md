@@ -1,88 +1,68 @@
-# 📋 Weather Dashboard — Feature Checklist & Development Roadmap
+# SkyPulse — Feature Checklist
 
-This checklist tracks the implementation status of all features, architecture components, and design milestones across all development rounds.
+Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insights**. An item is only checked if it was verified. "Tested" means the automated tests in `test/`; "browser" means checked in a browser on a local server, running the same code against live forecast data.
 
----
-
-## ✅ Current Milestone: 100% Completed
-
-### 🌟 Round 1: Foundation & Core Weather Data
-- [x] **City Search Form**: Instant city lookup with input validation and trimming.
-- [x] **Current Weather Card**: Live temperature, feels-like temperature, humidity, wind speed, atmospheric pressure, and visibility.
-- [x] **5-Day Weather Forecast**: Midday forecast cards with date, weather condition, animated icons, and temperatures.
-- [x] **Concurrent API Requests**: Fetch current weather and 5-day forecast concurrently via `Promise.all`.
-- [x] **Resilient Error Handling**: Informative user feedback for 404 (city not found), 401 (invalid API key), and network dropouts.
-- [x] **Loading States**: Responsive loading spinner during API communication.
-- [x] **Responsive Layout**: Glassmorphic CSS Grid & Flexbox design optimized for mobile, tablet, and desktop viewports.
+**Hosted deployments:** weather loading, search, all four activities, timeline sync, PDF download, unit switching, saved places, comparison, map tiles and console and network errors were also checked on the signed-in Vercel preview. Production only gets these features after merging.
 
 ---
 
-### 🚀 Round 2: Geolocation, Preferences & History
-- [x] **One-Click Geolocation**: Device GPS coordinate lookup (`navigator.geolocation`) with permission denial handling.
-- [x] **Animated SVG Weather Icons**: Dynamic weather iconography powered by Basmilius vector icons.
-- [x] **Global Temperature Unit Switcher**: Seamless toggling between Celsius (°C) and Fahrenheit (°F) across all metrics.
-- [x] **Unit Persistence**: Saved unit preference in `localStorage`.
-- [x] **Recent Search History**: Recent search chips (last 5 queries) with quick-click reloading and a clear button.
-- [x] **Favorite Cities Manager**: Pin/unpin up to 5 favorite cities with instant-access chips and removal controls.
+## Weather Window Finder
+- [x] Walking, running, cycling and outdoor dining profiles with their own weights (tested)
+- [x] `scoreWeatherWindow`: explainable, deterministic score out of 100 with categories (tested)
+- [x] Consecutive 3-hour windows from hourly samples interpolated between 3-hour readings (tested)
+- [x] Missing values are never treated as zero or ideal (tested)
+- [x] No windows outside forecast coverage, in the past, or across data gaps (tested)
+- [x] Top 3 non-overlapping windows, and fewer when coverage is short (tested)
+- [x] Metric internally, with display units applied only for presentation (tested, browser)
+- [x] City-local dates, half-hour time zones and midnight boundaries (tested)
+- [x] Activity tabs, ranked cards, categories, icons and expandable reasoning (browser)
+- [x] No-data, all-poor and first-load error states, and forecast freshness (browser)
+- [ ] Loading skeletons while requests are in flight: seen on the failed-load screen; not timed on a slow connection
+- [x] Selecting a window moves the existing timeline and highlights the period (browser)
+- [x] Air quality in scoring, using the API's 1-5 index with activity-specific limits and warnings (tested, browser)
+- [x] Missing air quality is not treated as good, and rules out Optimal (tested)
+- [x] Hard limits for storms, extreme heat and cold, very strong wind and heavy rain (tested, browser with simulated conditions)
+- [ ] A real thunderstorm in live data: scoring and the sky are tested with simulated conditions only
+- [x] Hourly estimates are labelled separately from API readings in the timeline, cards, chart and PDF (tested, browser)
 
----
+## Personal Weather Briefing
+- [x] Outfit, rain, sun, air quality and wind guidance from `generatePersonalBriefing` (tested)
+- [x] Severity ordering, and missing UV or AQI left out rather than invented (tested, browser)
+- [x] Updates on city, saved-place, recent-place and unit changes, and a fast double search ends on the last city (browser)
+- [ ] Peak UV hour: not possible, because the API provides one daily UV value
 
-### 🔬 Round 3: Advanced Meteorological Metrics & Health Advisor
-- [x] **Air Quality Index (AQI)**: Real-time AQI integration with EPA-standard PM2.5 calculation.
-- [x] **Color-Coded AQI Meter**: Visual fill bar and category status badge (Good, Fair, Moderate, Poor, Very Poor).
-- [x] **UV Index Gauge**: Real-time solar ultraviolet radiation intensity tracking.
-- [x] **Dew Point Approximation**: Magnus formula calculation for ambient humidity comfort levels.
-- [x] **Wind Compass Direction**: 8-point cardinal direction calculation with rotating arrow indicator.
-- [x] **Pressure Trend Tracker**: Real-time delta tracker indicating whether barometric pressure is Rising, Falling, or Steady.
-- [x] **Smart Activity Advisor**: Dynamic lifestyle guidance tailored to temperature, wind, UV, precipitation, and extreme weather.
+## Forecast Analytics (Chart.js 4.4.1, bundled locally)
+- [x] Temperature, rain chance and optional wind on separate axes (browser)
+- [x] 24-hour and full-forecast views, and legend (browser)
+- [x] Follows units, and shows a message if the library can't load (browser)
+- [x] The SVG timeline remains the primary forecast view (browser)
 
----
+## PDF Report
+- [x] Conditions, briefing, top windows, forecast table and chart for the selected city and units (browser, generated through html2pdf and inspected)
+- [x] Fits A4 width, and each section stays whole on an explicit page, because html2pdf's page-break plugin cut off the chart on long reports (browser, verified in the saved file)
+- [x] Fixed: reports came out blank when the page was scrolled (browser)
+- [x] Fixed: export froze if the page wasn't painting, as in a background tab (browser)
+- [x] Saved PDF bytes from the real export button parsed and rendered with pdf.js, not just the HTML (browser)
+- [ ] Opened in a desktop PDF viewer such as Acrobat: not checked
+- [ ] Selectable text: not available, because html2pdf embeds each page as an image
 
-### 📊 Round 4: Visual Analytics, Sun Arc & Dynamic Atmospheres
-- [x] **Interactive Forecast Chart**: Chart.js temperature curve with smooth tension, area gradient fills, and interactive tooltips.
-- [x] **Dynamic Weather Atmospheres**: Adaptive CSS backgrounds for Thunderstorm, Rain/Drizzle, Snow, Clouds, Fog/Mist, Clear Day, and Clear Night.
-- [x] **Timezone-Aware Local Clock**: Real-time ticking clock adjusted to the target city's timezone offset.
-- [x] **Solar Arc Timeline**: Visual sun position tracker calculated from sunrise and sunset timestamps.
-- [x] **Severe Weather Alerts Banner**: Automatic detection of hazardous weather (excessive heat, frost, storm, high winds, dense fog) with collapsible official advisories.
-- [x] **Theme Switcher**: Dark Mode and Light Mode toggle with persistence.
+## PWA & Offline
+- [x] New files precached; app shell loads with the server stopped (browser)
+- [x] Saved forecast is used when the network fails, labelled with its age (browser, simulated by stopping the server and removing the local key)
+- [x] API responses stay network-first; map tiles are not cached (code review)
+- [ ] Installed-app behavior on a real phone: not checked
 
----
+## Existing Features
+- [x] Live conditions, forecast, SVG timeline and sky scene (browser)
+- [x] Search, autocomplete, favorites and city comparison (browser)
+- [x] Weather map renders; all four layers return image tiles through the proxy (browser)
+- [x] Polar day and night: no invented sunrise, and the sky follows the API's day/night flag (browser)
+- [x] °C/°F, and light and dark themes including the chart redraw (browser)
+- [x] API key kept server-side through `api/weather.js`; can't be overridden and isn't returned (tested, code review)
+- [x] No horizontal overflow at 375px and 768px; layout checked at 1280px (browser)
+- [x] Location button: denial, timeout and success handling, using a simulated browser location (browser)
+- [ ] Location button with a real browser permission prompt: not checked
+- [ ] Touch swiping on a real phone: not checked
 
-### 📑 Round 5: Multi-City Comparison & Executive Reports
-- [x] **Side-by-Side City Comparison**: Real-time meteorological comparison between two cities with synchronized metric units.
-- [x] **Professional PDF Weather Report**: High-resolution downloadable PDF summary powered by `html2pdf.js` and `html2canvas`.
-- [x] **Toast Notifications**: Non-intrusive confirmation toasts for clipboard copies and PDF report generation.
-
----
-
-### 🎯 Round 6: Precision Search, Geocoding & Weather Radar
-- [x] **Default City on Initial Load**: Delhi, India loads automatically on first visit without manual search or blank state.
-- [x] **Smart City Autocomplete**: Intelligent ranking priority:
-  1. Exact city-name match
-  2. City name starts with typed query (prefix)
-  3. Fuzzy / partial substring match
-  4. Prominent / shorter primary city names
-  5. Region / Country match
-- [x] **Top 5 Suggestion Limit**: Shows maximum 5 ranked results from expanded geocoding lookups.
-- [x] **Autocomplete Keyboard Navigation**: Full keyboard support (`ArrowDown`, `ArrowUp`, `Enter`, `Escape`).
-- [x] **Cross-Platform Country Flags**: FlagCDN image rendering for 100% reliable display across Windows, macOS, Linux, Android, and iOS.
-- [x] **Interactive Radar & Weather Maps**: Leaflet.js map with OpenStreetMap tiles and switchable layers for Precipitation, Temperature, Clouds, and Wind.
-
----
-
-### 🛡️ Round 7: Production Readiness, Security & PWA
-- [x] **Serverless API Proxy (`api/weather.js`)**: Server-side proxy for Vercel/Netlify that injects API keys securely and hides them from DevTools network inspect.
-- [x] **Dual-Mode API Engine**: Seamlessly toggles between serverless proxy and direct browser calls with fallback resilience.
-- [x] **Smart TTL Caching Layer**: 10-minute localStorage + memory caching to prevent quota exhaustion and speed up repeated visits.
-- [x] **Progressive Web App (PWA)**: Complete `manifest.json` with app icons, theme color, and standalone mobile display mode.
-- [x] **Offline Service Worker (`service-worker.js`)**: Cache-first for core static assets and network-first with offline fallback for weather data.
-- [x] **Security Hardening (`vercel.json`)**: Modern HTTP headers including `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, and `Referrer-Policy`.
-- [x] **CI/CD Pipeline (`.github/workflows/ci-deploy.yml`)**: Automated syntax validation for JavaScript (deployment is handled by Vercel).
-- [x] **Multi-Platform Deployment Documentation**: Step-by-step guides for Vercel and Netlify in `README.md`.
-
----
-
-## 🔒 Security & Code Standards
-- [x] **API Key Protection**: Serverless proxy or git-ignored `config.js` (`config.example.js` provided).
-- [x] **Zero Build Overhead**: Runs natively in any browser or modern serverless host without mandatory complex bundlers.
-- [x] **Clean DOM Lifecycle**: Initialization bound to `DOMContentLoaded` for guaranteed safe rendering.
+## Removed Earlier
+These were in older versions of this checklist and are no longer in the app: the pollen card (invented data), "official" weather advisories (replaced by plainly labelled guidance), and the pressure trend (it compared different cities).
