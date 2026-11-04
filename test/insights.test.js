@@ -16,7 +16,7 @@ const T0 = Date.UTC(2026, 5, 10) / 1000;
 const CLEAR = { main: 'Clear', description: 'clear sky', icon: '01d' };
 
 function reading(dt, overrides = {}) {
-  return { dt, temp: 18, feels: 18, humidity: 50, wind: 2, gust: 3, pop: 0, vis: 10000, rain: 0, snow: 0, weather: CLEAR, ...overrides };
+  return { dt, temp: 18, feels: 18, humidity: 50, wind: 2, gust: 3, pop: 0, vis: 10000, rain: 0, snow: 0, weather: CLEAR, aqi: 1, ...overrides };
 }
 // `count` readings 3 hours apart
 function readings(count, overrides = {}, start = T0) {
@@ -239,6 +239,205 @@ test('windows can cross local midnight without breaking', () => {
   const r = scoreWeatherWindow('walking', samples);
   assert.equal(r.valid, true);
   assert.ok(r.reasons.some((x) => /Late-night/.test(x)));
+});
+
+/* ---------- Air quality in scoring (API 1-5 index) ---------- */
+const air = (index) => windowSamples({ aqi: index });
+
+test('air quality lowers scores, and more for harder exercise', () => {
+  const drop = (id) => scoreWeatherWindow(id, windowSamples({ temp: (ACTIVITIES[id].temp[0] + ACTIVITIES[id].temp[1]) / 2, feels: (ACTIVITIES[id].temp[0] + ACTIVITIES[id].temp[1]) / 2, wind: 1, gust: 1.5, aqi: 1 })).score
+    - scoreWeatherWindow(id, windowSamples({ temp: (ACTIVITIES[id].temp[0] + ACTIVITIES[id].temp[1]) / 2, feels: (ACTIVITIES[id].temp[0] + ACTIVITIES[id].temp[1]) / 2, wind: 1, gust: 1.5, aqi: 5 })).score;
+  assert.ok(drop('running') > drop('walking'), `${drop('running')} vs ${drop('walking')}`);
+  assert.ok(drop('walking') > 0);
+});
+
+test('poor and very poor air cannot be rated Optimal, with activity-specific limits', () => {
+  for (const id of ['walking', 'running', 'cycling', 'dining']) {
+    const [lo, hi] = ACTIVITIES[id].temp;
+    const mid = (lo + hi) / 2;
+    const at = (aqi) => scoreWeatherWindow(id, windowSamples({ temp: mid, feels: mid, wind: 1, gust: 1.5, aqi }, id === 'dining' ? 19 : 15));
+    assert.notEqual(at(4).category.id, 'optimal', `${id} at 4`);
+    assert.ok(at(5).score <= ACTIVITIES[id].air.cap[5], `${id} at 5 scored ${at(5).score}`);
+    assert.ok(at(1).score > at(4).score && at(4).score > at(5).score, id);
+  }
+  const mid = 14;
+  assert.equal(scoreWeatherWindow('running', windowSamples({ temp: mid, feels: mid, wind: 1, gust: 1.5, aqi: 5 })).category.id, 'poor');
+});
+
+test('good and fair air carry no penalty', () => {
+  assert.equal(scoreWeatherWindow('walking', air(1)).score, scoreWeatherWindow('walking', air(2)).score);
+});
+
+test('poor air produces a clear warning and reports the API index', () => {
+  const r = scoreWeatherWindow('running', air(4));
+  assert.deepEqual(r.air, { index: 4, label: 'Poor' });
+  assert.match(r.warnings[0], /Poor air quality \(4 of 5\)/);
+  assert.ok(r.caps.length === 0 || r.caps.some((c) => /air quality/.test(c.reason)));
+});
+
+test('air quality is a warning rather than a repeated reason', () => {
+  const r = scoreWeatherWindow('running', windowSamples({ temp: 14, feels: 14, aqi: 5 }));
+  assert.ok(!r.reasons.some((x) => /air quality/i.test(x)));
+  assert.match(r.warnings[0], /Very poor air quality/);
+});
+
+test('the worst hour in a window sets its air rating', () => {
+  const samples = windowSamples();
+  samples[2] = { ...samples[2], aqi: 5 };
+  assert.equal(scoreWeatherWindow('walking', samples).air.index, 5);
+});
+
+test('missing air quality is not treated as good air', () => {
+  const known = scoreWeatherWindow('walking', windowSamples({ temp: 20, feels: 20, wind: 1, gust: 1.5, aqi: 1 }));
+  for (const value of [null, undefined, 0, 6, 2.5, '3']) {
+    const r = scoreWeatherWindow('walking', windowSamples({ temp: 20, feels: 20, wind: 1, gust: 1.5, aqi: value }));
+    assert.equal(r.air, null, String(value));
+    assert.ok(r.score <= 84 && r.score < known.score, String(value));
+    assert.notEqual(r.category.id, 'optimal');
+    assert.ok(r.missing.includes('air quality'));
+    assert.match(r.warnings[0], /No air quality data/);
+  }
+});
+
+test('one missing hour makes the whole window unknown', () => {
+  const samples = windowSamples();
+  samples[1] = { ...samples[1], aqi: null };
+  assert.equal(scoreWeatherWindow('walking', samples).air, null);
+});
+
+test('air readings are matched by time inside findWeatherWindows, without averaging', () => {
+  const data = readings(9);
+  const airList = Array.from({ length: 30 }, (_, i) => ({ dt: T0 + i * HOUR, aqi: i < 15 ? 5 : 1 }));
+  const found = findWeatherWindows('walking', data, { now: T0, tz: 0, air: airList, limit: 8 });
+  for (const w of found) {
+    const expected = w.start < T0 + 15 * HOUR ? 5 : 1;
+    assert.equal(w.air.index, expected, new Date(w.start * 1000).toISOString());
+  }
+  assert.equal(found[0].air.index, 1, 'clean-air windows rank first');
+});
+
+test('air readings too far from the window count as missing', () => {
+  const found = findWeatherWindows('walking', readings(3), { now: T0, tz: 0, air: [{ dt: T0 - 5 * HOUR, aqi: 1 }] });
+  for (const w of found) assert.equal(w.air, null);
+});
+
+/* ---------- Edge cases: storms, heat, wind, missing conditions ---------- */
+const perfect = (id, extra) => {
+  const [lo, hi] = ACTIVITIES[id].temp;
+  return windowSamples({ temp: (lo + hi) / 2, feels: (lo + hi) / 2, wind: 1, gust: 1.5, ...extra }, id === 'dining' ? 19 : 15);
+};
+const ALL = ['walking', 'running', 'cycling', 'dining'];
+
+test('storms are Poor for every activity, even in perfect weather', () => {
+  for (const main of ['Thunderstorm', 'Tornado', 'Squall']) {
+    for (const id of ALL) {
+      const r = scoreWeatherWindow(id, perfect(id, { weather: { main, description: main, icon: '11d' } }));
+      assert.ok(r.score <= 30, `${id} ${main}: ${r.score}`);
+      assert.equal(r.category.id, 'poor');
+    }
+  }
+});
+
+test('one storm hour rules out the window', () => {
+  const samples = perfect('walking');
+  samples[3] = { ...samples[3], weather: { main: 'Thunderstorm', description: 'storm', icon: '11d' } };
+  assert.equal(scoreWeatherWindow('walking', samples).category.id, 'poor');
+});
+
+test('extreme heat is Poor for every activity', () => {
+  for (const id of ALL) {
+    const r = scoreWeatherWindow(id, perfect(id, { temp: 36, feels: 39 }));
+    assert.equal(r.category.id, 'poor', `${id}: ${r.score}`);
+    assert.ok(r.warnings.some((w) => /Extreme heat/.test(w)));
+  }
+});
+
+test('running is capped sooner in heat than walking', () => {
+  const heat = { temp: 28, feels: 32 };
+  assert.ok(scoreWeatherWindow('running', windowSamples(heat)).score <= 60);
+  assert.ok(scoreWeatherWindow('walking', windowSamples(heat)).score > scoreWeatherWindow('running', windowSamples(heat)).score);
+});
+
+test('extreme cold is Poor', () => {
+  for (const id of ALL) assert.equal(scoreWeatherWindow(id, perfect(id, { feels: -20 })).category.id, 'poor', id);
+});
+
+test('very strong wind is Poor for every activity, by speed or gusts', () => {
+  for (const id of ALL) {
+    assert.equal(scoreWeatherWindow(id, perfect(id, { wind: 15, gust: 18 })).category.id, 'poor', `${id} speed`);
+    assert.equal(scoreWeatherWindow(id, perfect(id, { wind: 3, gust: 17 })).category.id, 'poor', `${id} gust`);
+  }
+});
+
+test('cycling is ruled out by gusts that other activities tolerate', () => {
+  const gusty = { wind: 3, gust: 14.5 }; // 52 km/h
+  assert.equal(scoreWeatherWindow('cycling', perfect('cycling', gusty)).category.id, 'poor');
+  assert.ok(scoreWeatherWindow('walking', perfect('walking', gusty)).score >= 60);
+});
+
+test('likely and heavy rain limit the score', () => {
+  assert.ok(scoreWeatherWindow('walking', perfect('walking', { pop: 0.8 })).score <= 60);
+  assert.ok(scoreWeatherWindow('walking', perfect('walking', { pop: 0.8, rain: 10 })).score <= 45);
+});
+
+test('smoke or dust conditions are penalized', () => {
+  const smoke = { weather: { main: 'Smoke', description: 'smoke', icon: '50d' } };
+  assert.ok(scoreWeatherWindow('walking', perfect('walking', smoke)).score < scoreWeatherWindow('walking', perfect('walking')).score);
+});
+
+test('missing weather conditions cannot be rated Optimal', () => {
+  const r = scoreWeatherWindow('walking', perfect('walking', { weather: null }));
+  assert.equal(r.valid, true);
+  assert.notEqual(r.category.id, 'optimal');
+  assert.ok(r.missing.includes('weather conditions'));
+});
+
+test('cycling without gust data cannot be rated Optimal', () => {
+  const r = scoreWeatherWindow('cycling', perfect('cycling', { gust: null }));
+  assert.notEqual(r.category.id, 'optimal');
+  assert.ok(r.caps.some((c) => /gust/i.test(c.reason)));
+});
+
+test('outdoor dining at 3 AM is not recommended over a mealtime', () => {
+  const warm = { temp: 23, feels: 23, wind: 1, gust: 2 };
+  const night = scoreWeatherWindow('dining', windowSamples(warm, 2));
+  const dinner = scoreWeatherWindow('dining', windowSamples(warm, 19));
+  assert.ok(night.score < 60, `${night.score}`);
+  assert.ok(dinner.score - night.score >= 40);
+});
+
+test('reasons do not praise what a deduction contradicts', () => {
+  const rainy = { weather: { main: 'Rain', description: 'light rain', icon: '10d' }, pop: 0 };
+  const r = scoreWeatherWindow('walking', windowSamples(rainy));
+  assert.ok(!r.reasons.some((x) => /Low chance of rain/.test(x)));
+  const hot = scoreWeatherWindow('walking', windowSamples({ temp: 24, feels: 39 }));
+  assert.ok(!hot.reasons.some((x) => /Comfortable temperature/.test(x)));
+});
+
+test('unknown activity names cannot reach Object.prototype', () => {
+  assert.throws(() => scoreWeatherWindow('constructor', windowSamples()));
+});
+
+/* ---------- Provenance: readings vs estimates ---------- */
+test('samples are labelled as readings or interpolated', () => {
+  const series = buildHourlySeries([reading(T0), reading(T0 + 3 * HOUR)], { now: T0, tz: 0 });
+  assert.deepEqual(series.map((s) => s.source), ['reading', 'interpolated', 'interpolated', 'reading']);
+});
+
+test('half-hour time zones are entirely estimated, and say so', () => {
+  const tz = 5.5 * HOUR;
+  const found = findWeatherWindows('walking', readings(9), { now: T0, tz });
+  assert.ok(found.length > 0);
+  for (const w of found) {
+    assert.equal(w.estimatedSamples, w.sampleCount);
+    assert.ok(w.readingsInWindow >= 1, 'a 3-hour window contains at least one real reading');
+  }
+});
+
+test('windows report how much was estimated', () => {
+  const found = findWeatherWindows('walking', readings(9), { now: T0, tz: 0, limit: 1 });
+  assert.equal(found[0].sampleCount, 4);
+  assert.equal(found[0].estimatedSamples + found[0].readingsInWindow, 4);
 });
 
 /* ---------- Briefing ---------- */

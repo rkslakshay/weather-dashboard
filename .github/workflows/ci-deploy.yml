@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'redesign/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -39,4 +39,6 @@ jobs:
           test -f manifest.json
           test -f vercel.json
           test -f assets/icon.svg
+          test -f insights.js
+          test -f vendor/chart.umd.js
 

@@ -27,10 +27,21 @@ These are configurable preferences in `ACTIVITIES` (`insights.js`), not safety t
 1. **Hourly samples.** OpenWeatherMap's free forecast is 3-hourly, so hourly values are interpolated between real readings. Nothing is extrapolated beyond coverage, and a window can never span a gap in the data.
 2. **Metric scores.** Temperature, rain chance, wind, humidity and gusts each score 0–100 against the activity's preferences (100 inside the range, falling linearly outside it).
 3. **Weighted average.** Each activity has its own weights.
-4. **Deductions.** Storms, snow, rain, high heat, sub-zero feels-like temperatures, strong gusts when cycling, low visibility and late-night hours subtract points.
-5. **Categories.** 85–100 Optimal, 70–84 Good, 50–69 Fair, below 50 Poor.
+4. **Deductions.** Storms, snow, rain, high heat, sub-zero feels-like temperatures, strong gusts when cycling, low visibility, smoke or dust, late-night hours and air quality subtract points.
+5. **Hard limits.** Some conditions cap the score however pleasant everything else is: storms (30), extreme heat or cold and very strong wind (45), heavy rain (45), likely rain (60), plus activity-specific limits for heat, gusts and air quality.
+6. **Categories.** 85–100 Optimal, 70–84 Good, 50–69 Fair, below 50 Poor.
 
-**Missing data is never treated as zero or ideal.** A window missing temperature, rain chance or wind is not scored at all. Missing humidity or gusts drop out of the average, and the card says so. If coverage only allows one or two windows, only those are shown.
+**Air quality** uses OpenWeatherMap's own hourly index, from 1 (Good) to 5 (Very poor), taking the worst hour in the window. It is an index, so it is matched by time and never averaged or interpolated.
+
+| Air index | Walking | Running | Cycling | Outdoor dining |
+|---|---|---|---|---|
+| 3 Moderate | −3 | −8, max 84 | −6 | −2 |
+| 4 Poor | −15, max 79 | −25, max 59 | −20, max 64 | −10, max 84 |
+| 5 Very poor | −30, max 49 | −45, max 35 | −40, max 40 | −25, max 55 |
+
+**Missing data is never treated as zero or ideal.** A window missing temperature, rain chance or wind is not scored at all. Missing humidity or gusts drop out of the average, and the card says so. Missing air quality, weather conditions, or gusts for cycling also limit the score to 84, so that window can't be rated Optimal. If coverage only allows one or two windows, only those are shown.
+
+**Readings versus estimates.** The API reports every 3 hours. The timeline marks each real reading with a dot and labels anything in between as estimated. Window cards, the chart and the PDF state which values are readings and which are estimates.
 
 ## 💡 Personal Weather Briefing
 
@@ -39,7 +50,7 @@ A rule-based summary of current conditions and the next 24 hours, with the most 
 - **Outfit & Comfort**: based on the feels-like temperature, explaining wind chill or humidity when they matter.
 - **Rain & Umbrella**: the highest-risk period, expected amount, and whether an umbrella or waterproofs may help. It speaks in chances, not promises.
 - **Sun Protection**: follows the reported UV index. The API gives one daily value, so no peak hour is claimed.
-- **Air Quality**: US AQI derived from PM2.5, using the same value as the air quality tile.
+- **Air Quality**: US AQI derived from PM2.5, using the same value as the air quality tile. The tile also shows OpenWeatherMap's 1–5 index, which the Weather Window Finder uses, and each scale is labelled wherever it appears.
 - **Wind & Outdoor Activities**: current wind and the strongest gusts ahead, with cycling and outdoor guidance.
 
 Sections with no data are left out and named as unavailable. The briefing updates when the city, data or units change.

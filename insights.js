@@ -33,7 +33,8 @@
       humidity: [30, 70],
       weights: { temp: 0.35, rain: 0.3, wind: 0.15, humidity: 0.15, gust: 0.05 },
       gustMax: 40,
-      heatPenaltyFrom: 33
+      heatPenaltyFrom: 33,
+      air: { deduct: { 3: 3, 4: 15, 5: 30 }, cap: { 4: 79, 5: 49 } }
     },
     running: {
       id: 'running',
@@ -44,7 +45,9 @@
       humidity: [25, 65],
       weights: { temp: 0.4, rain: 0.2, wind: 0.15, humidity: 0.2, gust: 0.05 },
       gustMax: 35,
-      heatPenaltyFrom: 27
+      heatPenaltyFrom: 27,
+      heatCapFrom: 32,
+      air: { deduct: { 3: 8, 4: 25, 5: 45 }, cap: { 3: 84, 4: 59, 5: 35 } }
     },
     cycling: {
       id: 'cycling',
@@ -56,7 +59,9 @@
       weights: { temp: 0.25, rain: 0.25, wind: 0.25, gust: 0.2, humidity: 0.05 },
       gustMax: 30,
       gustPenaltyFrom: 30,
-      heatPenaltyFrom: 32
+      gustRequired: true,
+      heatPenaltyFrom: 32,
+      air: { deduct: { 3: 6, 4: 20, 5: 40 }, cap: { 4: 64, 5: 40 } }
     },
     dining: {
       id: 'dining',
@@ -68,7 +73,8 @@
       weights: { temp: 0.3, rain: 0.3, wind: 0.15, humidity: 0.05, timing: 0.2 },
       gustMax: 25,
       mealSlots: [[12, 14], [19, 22]],
-      heatPenaltyFrom: 33
+      heatPenaltyFrom: 33,
+      air: { deduct: { 3: 2, 4: 10, 5: 25 }, cap: { 4: 84, 5: 55 } }
     }
   };
 
@@ -79,8 +85,15 @@
     { min: -Infinity, id: 'poor', label: 'Poor' }
   ];
   const categoryFor = (score) => CATEGORIES.find((c) => score >= c.min);
+  const isActivity = (id) => Object.prototype.hasOwnProperty.call(ACTIVITIES, id);
 
   const SEVERE_WEATHER = ['Thunderstorm', 'Tornado', 'Squall'];
+  const AIRBORNE_PARTICLES = ['Smoke', 'Dust', 'Sand', 'Ash'];
+  // OpenWeatherMap's own air quality index: 1 (Good) to 5 (Very poor)
+  const AIR_LABELS = { 1: 'Good', 2: 'Fair', 3: 'Moderate', 4: 'Poor', 5: 'Very poor' };
+  const UNKNOWN_DATA_CAP = 84; // Without key data a window can't be called Optimal
+  const AIR_MATCH_SECONDS = 90 * 60;
+  const validAirIndex = (v) => Number.isInteger(v) && v >= 1 && v <= 5;
   const QUIET_START = 22;
   const QUIET_END = 5;
 
@@ -113,13 +126,23 @@
      ======================================================================== */
   const lerpField = (a, b, key, f) => (isNum(a[key]) && isNum(b[key]) ? a[key] + (b[key] - a[key]) * f : null);
 
+  // Nearest air reading (an index, so it is matched, never averaged)
+  function airIndexAt(air, t) {
+    if (!Array.isArray(air)) return null;
+    let best = null;
+    for (const entry of air) {
+      if (entry && isNum(entry.dt) && validAirIndex(entry.aqi) && (!best || Math.abs(entry.dt - t) < Math.abs(best.dt - t))) best = entry;
+    }
+    return best && Math.abs(best.dt - t) <= AIR_MATCH_SECONDS ? best.aqi : null;
+  }
+
   /**
    * Hourly samples at the top of each city-local hour, from `now` to the end of coverage.
    * The free forecast is 3-hourly, so values between two real readings are interpolated.
    * Nothing is extrapolated, and hours across a gap wider than `maxGapHours` are skipped,
    * which is what stops a window from spanning missing data.
    */
-  function buildHourlySeries(readings, { now, tz = 0, horizonHours = 48, maxGapHours = 3.5 } = {}) {
+  function buildHourlySeries(readings, { now, tz = 0, horizonHours = 48, maxGapHours = 3.5, air = null } = {}) {
     const sorted = (readings || []).filter((r) => r && isNum(r.dt)).sort((a, b) => a.dt - b.dt);
     if (!sorted.length) return [];
     const from = Math.max(isNum(now) ? now : sorted[0].dt, sorted[0].dt);
@@ -138,6 +161,9 @@
       samples.push({
         dt: t,
         localHour: localHourOf(t, tz),
+        // 'reading' when the API reported this exact time, otherwise estimated between two readings
+        source: t === a.dt || t === b.dt ? 'reading' : 'interpolated',
+        aqi: airIndexAt(air, t),
         temp: lerpField(a, b, 'temp', f),
         feels: lerpField(a, b, 'feels', f),
         humidity: lerpField(a, b, 'humidity', f),
@@ -175,7 +201,15 @@
       humidity: 'Humidity outside the comfortable range',
       timing: 'Outside the preferred mealtimes'
     };
-    const entries = Object.entries(sub).map(([key, value]) => ({ key, value, weighted: value * profile.weights[key] }));
+    const contradicted = new Set();
+    for (const a of adjustments) {
+      if (/Rain|Snow|Storm/.test(a.reason)) contradicted.add('rain');
+      if (/heat|freezing|cold/i.test(a.reason)) contradicted.add('temp');
+      if (/wind|gust/i.test(a.reason)) { contradicted.add('wind'); contradicted.add('gust'); }
+    }
+    const entries = Object.entries(sub)
+      .filter(([key, value]) => value < 55 || !contradicted.has(key))
+      .map(([key, value]) => ({ key, value, weighted: value * profile.weights[key] }));
     const negatives = entries.filter((e) => e.value < 55).sort((a, b) => a.value - b.value).map((e) => bad[e.key]);
     const positives = entries.filter((e) => e.value >= 75).sort((a, b) => b.weighted - a.weighted).map((e) => good[e.key]);
     const notes = adjustments.map((a) => a.reason);
@@ -189,7 +223,7 @@
    * and gusts are optional and drop out of the weighted average when absent.
    */
   function scoreWeatherWindow(activity, hourlyForecast, { tz = 0 } = {}) {
-    const profile = typeof activity === 'string' ? ACTIVITIES[activity] : activity;
+    const profile = typeof activity === 'string' ? (isActivity(activity) ? ACTIVITIES[activity] : null) : activity;
     if (!profile) throw new Error(`Unknown activity: ${activity}`);
     const samples = hourlyForecast || [];
     if (samples.length < 2) return { valid: false, reason: 'Not enough forecast data' };
@@ -237,32 +271,81 @@
 
     // Explicit deductions for conditions a weighted average would otherwise hide
     const adjustments = [];
+    // Hard limits: some conditions rule out a good rating however pleasant everything else is
+    const caps = [];
+    const hasConditions = samples.every((s) => s.weather && s.weather.main);
     const conditions = samples.map((s) => (s.weather ? s.weather.main : ''));
     const maxGust = gustKmh ? Math.max(...gustKmh) : null;
+    const maxWind = Math.max(...windKmh);
     const maxFeels = Math.max(...feels);
     const minFeels = Math.min(...feels);
     const minVis = values('vis').every(isNum) ? Math.min(...values('vis')) : null;
+    const maxRain = Math.max(...samples.map((s) => s.rain || 0));
+    const activityName = profile.label.toLowerCase();
 
-    if (conditions.some((c) => SEVERE_WEATHER.includes(c))) adjustments.push({ points: -60, reason: 'Storms in the forecast for this period' });
-    else if (conditions.includes('Snow')) adjustments.push({ points: -25, reason: 'Snow in the forecast for this period' });
+    if (conditions.some((c) => SEVERE_WEATHER.includes(c))) {
+      adjustments.push({ points: -60, reason: 'Storms in the forecast for this period' });
+      caps.push({ max: 30, reason: 'Storms in the forecast for this period' });
+    } else if (conditions.includes('Snow')) adjustments.push({ points: -25, reason: 'Snow in the forecast for this period' });
     else if (conditions.some((c) => c === 'Rain' || c === 'Drizzle')) adjustments.push({ points: -15, reason: 'Rain in the forecast for this period' });
+    if (maxRain >= 7.5) caps.push({ max: 45, reason: 'Heavy rain in the forecast' });
+    else if (popMax >= 0.7) caps.push({ max: 60, reason: 'Rain is likely in this period' });
 
     if (maxFeels >= profile.heatPenaltyFrom) adjustments.push({ points: -Math.min(30, 10 + (maxFeels - profile.heatPenaltyFrom) * 2), reason: 'High heat for this activity' });
+    if (maxFeels >= 38) caps.push({ max: 45, reason: 'Extreme heat' });
+    else if (profile.heatCapFrom && maxFeels >= profile.heatCapFrom) caps.push({ max: 60, reason: `Too hot for comfortable ${activityName}` });
+
     if (minFeels <= 0) adjustments.push({ points: -15, reason: 'Feels below freezing' });
+    if (minFeels <= -15) caps.push({ max: 45, reason: 'Extreme cold' });
+
     if (profile.gustPenaltyFrom && maxGust !== null && maxGust > profile.gustPenaltyFrom) {
       adjustments.push({ points: -Math.min(25, 10 + (maxGust - profile.gustPenaltyFrom)), reason: `Gusts above ${profile.gustPenaltyFrom} km/h` });
     }
-    if (minVis !== null && minVis < 1000) adjustments.push({ points: -15, reason: 'Low visibility' });
+    if (maxWind >= 50 || (maxGust !== null && maxGust >= 60)) caps.push({ max: 45, reason: 'Very strong wind' });
+    else if (profile.gustPenaltyFrom && maxGust !== null && maxGust >= 50) caps.push({ max: 40, reason: 'Gusts too strong for comfortable cycling' });
+    else if (profile.mealSlots && (maxWind >= 30 || (maxGust !== null && maxGust >= 45))) caps.push({ max: 60, reason: 'Too windy for comfortable outdoor seating' });
 
-    if (!profile.mealSlots) {
-      const quiet = overlapHours(start, hours, tz, QUIET_START, 24) + overlapHours(start, hours, tz, 0, QUIET_END);
-      if (quiet > 0) adjustments.push({ points: -Math.round(35 * (quiet / hours)), reason: 'Late-night or very early hours' });
+    if (minVis !== null && minVis < 1000) adjustments.push({ points: -15, reason: 'Low visibility' });
+    if (conditions.some((c) => AIRBORNE_PARTICLES.includes(c))) adjustments.push({ points: -15, reason: 'Smoke, dust or ash in the air' });
+
+    const quiet = overlapHours(start, hours, tz, QUIET_START, 24) + overlapHours(start, hours, tz, 0, QUIET_END);
+    const quietFor = profile.mealSlots ? quiet - overlapHours(start, hours, tz, 22, 22) : quiet;
+    if (quietFor > 0) adjustments.push({ points: -Math.round(35 * (quietFor / hours)), reason: 'Late-night or very early hours' });
+
+    // Air quality uses the worst hour in the window, on the API's 1-5 scale
+    const airValues = samples.map((s) => s.aqi);
+    const airKnown = airValues.every(validAirIndex);
+    const airIndex = airKnown ? Math.max(...airValues) : null;
+    const warnings = [];
+    if (airKnown) {
+      const label = AIR_LABELS[airIndex];
+      const deduct = (profile.air.deduct || {})[airIndex] || 0;
+      const cap = (profile.air.cap || {})[airIndex];
+      if (deduct) adjustments.push({ points: -deduct, reason: `${label} air quality` });
+      if (cap !== undefined) caps.push({ max: cap, reason: `${label} air quality for ${activityName}` });
+      if (airIndex === 5) warnings.push(`Very poor air quality (5 of 5). Consider an indoor alternative to ${activityName}, especially if you are in a sensitive group.`);
+      else if (airIndex === 4) warnings.push(`Poor air quality (4 of 5). Consider easing off or shortening ${activityName}, especially if you are in a sensitive group.`);
+      else if (airIndex === 3 && profile.air.cap && profile.air.cap[3]) warnings.push(`Moderate air quality (3 of 5). Sensitive people may want to take ${activityName} more gently.`);
+    } else {
+      caps.push({ max: UNKNOWN_DATA_CAP, reason: 'No air quality data for this period' });
+      warnings.push("No air quality data for this period, so it isn't in the score and this window can't be rated Optimal.");
+    }
+
+    // Unknowns that could hide a problem also rule out the top rating
+    if (!hasConditions) caps.push({ max: UNKNOWN_DATA_CAP, reason: 'Weather conditions not reported for this period' });
+    if (profile.gustRequired && !gustKmh) caps.push({ max: UNKNOWN_DATA_CAP, reason: 'No gust data, which matters for cycling' });
+
+    for (const c of caps) {
+      if (c.max <= 60 && !/air quality/i.test(c.reason)) warnings.push(`${c.reason}.`);
     }
 
     const penalty = adjustments.reduce((sum, a) => sum + a.points, 0);
-    const score = Math.round(clamp(base + penalty, 0, 100));
+    const uncapped = clamp(base + penalty, 0, 100);
+    const limit = Math.min(100, ...caps.map((c) => c.max));
+    const score = Math.round(Math.min(uncapped, limit));
     const middle = samples[Math.floor(samples.length / 2)];
     const isWarning = (a) => a.points <= -15;
+    const appliedCaps = caps.filter((c) => c.max < uncapped);
 
     return {
       valid: true,
@@ -270,6 +353,7 @@
       start,
       end,
       score,
+      uncappedScore: uncapped,
       category: categoryFor(score),
       temp: mean(temps),
       feels: mean(feels),
@@ -280,10 +364,17 @@
       weather: middle.weather,
       rainMm: Math.max(...samples.map((s) => s.rain || 0)),
       snowMm: Math.max(...samples.map((s) => s.snow || 0)),
-      reasons: buildReasons(profile, sub, adjustments.filter(isWarning)),
+      air: airKnown ? { index: airIndex, label: AIR_LABELS[airIndex] } : null,
+      warnings,
+      caps: appliedCaps,
+      // How much of this window the API actually reported
+      estimatedSamples: samples.filter((s) => s.source === 'interpolated').length,
+      sampleCount: samples.length,
+      // Air quality has its own warning, so it isn't repeated in the reasons
+      reasons: buildReasons(profile, sub, adjustments.filter((a) => isWarning(a) && !/air quality/i.test(a.reason))),
       breakdown: Object.entries(sub).map(([key, value]) => ({ key, label: METRIC_LABELS[key], score: Math.round(value), weight: profile.weights[key] })),
       adjustments,
-      missing: [gustKmh ? null : 'gusts', humidity ? null : 'humidity'].filter(Boolean)
+      missing: [gustKmh ? null : 'gusts', humidity ? null : 'humidity', airKnown ? null : 'air quality', hasConditions ? null : 'weather conditions'].filter(Boolean)
     };
   }
 
@@ -291,18 +382,23 @@
    * Ranks non-overlapping 3-hour windows inside forecast coverage. Returns only windows
    * that have real data, so fewer than `limit` come back when coverage is short.
    */
-  function findWeatherWindows(activity, readings, { now, tz = 0, horizonHours = 48, windowHours = 3, limit = 3 } = {}) {
-    const series = buildHourlySeries(readings, { now, tz, horizonHours });
+  function findWeatherWindows(activity, readings, { now, tz = 0, horizonHours = 48, windowHours = 3, limit = 3, air = null } = {}) {
+    const series = buildHourlySeries(readings, { now, tz, horizonHours, air });
     const scored = [];
     for (let i = 0; i + windowHours < series.length; i++) {
       const result = scoreWeatherWindow(activity, series.slice(i, i + windowHours + 1), { tz });
       if (result.valid) scored.push(result);
     }
-    scored.sort((a, b) => b.score - a.score || a.start - b.start);
+    // Caps can flatten many windows to one score, so break ties on the score before capping
+    scored.sort((a, b) => b.score - a.score || b.uncappedScore - a.uncappedScore || a.start - b.start);
     const picked = [];
     for (const w of scored) {
       if (picked.every((p) => w.end <= p.start || w.start >= p.end)) picked.push(w);
       if (picked.length === limit) break;
+    }
+    // Real API readings that fall inside each window; hours between them are estimates
+    for (const w of picked) {
+      w.readingsInWindow = (readings || []).filter((r) => r && isNum(r.dt) && r.dt >= w.start && r.dt <= w.end).length;
     }
     return picked;
   }
@@ -473,7 +569,9 @@
 
   return {
     ACTIVITIES,
+    AIR_LABELS,
     CATEGORIES,
+    isActivity,
     categoryFor,
     localDayKey,
     buildHourlySeries,

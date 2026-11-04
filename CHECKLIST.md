@@ -17,11 +17,15 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 - [x] No-data and all-poor states, and forecast freshness (browser)
 - [ ] Loading and first-load error states: implemented, but only reviewed in code, not exercised in a browser
 - [x] Selecting a window moves the existing timeline and highlights the period (browser)
+- [x] Air quality in scoring, using the API's 1-5 index with activity-specific limits and warnings (tested, browser)
+- [x] Missing air quality is not treated as good, and rules out Optimal (tested)
+- [x] Hard limits for storms, extreme heat and cold, very strong wind and heavy rain (tested)
+- [x] Hourly estimates are labelled separately from API readings in the timeline, cards, chart and PDF (tested, browser)
 
 ## Personal Weather Briefing
 - [x] Outfit, rain, sun, air quality and wind guidance from `generatePersonalBriefing` (tested)
 - [x] Severity ordering, and missing UV or AQI left out rather than invented (tested, browser)
-- [x] Updates on city and unit changes (browser)
+- [x] Updates on city, saved-place, recent-place and unit changes, and a fast double search ends on the last city (browser)
 - [ ] Peak UV hour: not possible, because the API provides one daily UV value
 
 ## Forecast Analytics (Chart.js 4.4.1, bundled locally)
@@ -32,9 +36,11 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 
 ## PDF Report
 - [x] Conditions, briefing, top windows, forecast table and chart for the selected city and units (browser, generated through html2pdf and inspected)
-- [x] Fits A4 width, and sections do not split across pages (browser, measured)
+- [x] Fits A4 width, and each section stays whole on an explicit page, because html2pdf's page-break plugin cut off the chart on long reports (browser, verified in the saved file)
 - [x] Fixed: reports came out blank when the page was scrolled (browser)
-- [ ] Downloaded file opened in a PDF viewer: not checked; the same generation pipeline was inspected instead
+- [x] Saved PDF bytes from the real export button parsed and rendered with pdf.js, not just the HTML (browser)
+- [ ] Opened in a desktop PDF viewer such as Acrobat: not checked
+- [ ] Selectable text: not available, because html2pdf embeds each page as an image
 
 ## PWA & Offline
 - [x] New files precached; app shell loads with the server stopped (browser)

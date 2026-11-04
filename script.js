@@ -71,6 +71,7 @@ const state = {
   selectedWindow: null,   // { start, end } highlighted on the timeline
   chartView: '5d',
   airStatus: 'loading',   // 'loading' | 'done' (data or failure)
+  airForecastStatus: 'loading',
   uvStatus: 'loading',
   forecastFetchedAt: null,
   loadFailed: false,
@@ -386,7 +387,7 @@ async function loadPlace(place, { silent = false } = {}) {
     const sameRequest = state.place === place;
     Object.assign(state, {
       place, current, forecast, air: null, airForecast: null, uvi: null, loadedAt: Date.now(),
-      airStatus: 'loading', uvStatus: 'loading', loadFailed: false,
+      airStatus: 'loading', airForecastStatus: 'loading', uvStatus: 'loading', loadFailed: false,
       forecastFetchedAt: fetchedAt.get(forecast) ?? Date.now(),
       selectedWindow: sameRequest ? state.selectedWindow : null
     });
@@ -412,9 +413,11 @@ async function loadPlace(place, { silent = false } = {}) {
     fetchWeatherApi('air_pollution', { lat, lon }, ttl)
       .then((d) => { if (seq === loadSeq) state.air = d; })
       .catch(() => {})
-      .finally(() => { if (seq === loadSeq) { state.airStatus = 'done'; renderMoment(); renderBriefing(); } });
+      .finally(() => { if (seq === loadSeq) { state.airStatus = 'done'; renderMoment(); renderBriefing(); renderWindows(); } });
     fetchWeatherApi('air_pollution_forecast', { lat, lon }, ttl)
-      .then((d) => { if (seq === loadSeq) { state.airForecast = d; renderMoment(); } }).catch(() => {});
+      .then((d) => { if (seq === loadSeq) state.airForecast = d; })
+      .catch(() => {})
+      .finally(() => { if (seq === loadSeq) { state.airForecastStatus = 'done'; renderMoment(); renderWindows(); } });
     fetchWeatherApi('uvi', { lat, lon }, ttl)
       .then((d) => { if (seq === loadSeq) state.uvi = isNum(d && d.value) ? d.value : null; })
       .catch(() => {})
@@ -788,6 +791,7 @@ function renderTimeline() {
     lastLabelX = px;
     parts.push(`<image href="${iconUrl(p.weather)}" x="${(px - 13).toFixed(1)}" y="${TL.iconY}" width="26" height="26"/>`);
     parts.push(`<text class="tl-temp" x="${px.toFixed(1)}" y="${(ys[i] - 11).toFixed(1)}">${units.deg(p.temp)}</text>`);
+    parts.push(`<circle class="tl-reading" cx="${px.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2.5"/>`);
     if (p.pop >= 0.2) parts.push(`<text class="tl-pop" x="${px.toFixed(1)}" y="${TL.barBase - h - 4}">${Math.round(p.pop * 100)}%</text>`);
     parts.push(`<text class="tl-hour" x="${px.toFixed(1)}" y="${TL.height - 8}">${i === 0 ? 'Now' : esc(fmtHour(p.dt))}</text>`);
   });
@@ -832,14 +836,19 @@ function sizeTimeline() {
 const momentToScroll = (t) => (tlGeom ? tlGeom.x(t) : 0);
 const momentFromScroll = () => clamp(tlGeom.t0 + (el.tlScroller.scrollLeft / PX_PER_HOUR) * 3600, tlGeom.t0, tlGeom.t1);
 
-// Where a smooth scroll is heading, so repeated key presses build on it instead of the old position
+// Where a programmatic scroll is heading. Repeated key presses build on it, and landing snaps to
+// the exact time, because scroll positions round to whole pixels (about 2.7 minutes each).
+const PENDING_TTL_MS = 1500;
 let pendingMoment = null;
-const baseMoment = () => (pendingMoment ?? state.moment);
+let pendingSetAt = 0;
+const setPending = (t) => { pendingMoment = t; pendingSetAt = Date.now(); };
+const activePending = () => (pendingMoment !== null && Date.now() - pendingSetAt < PENDING_TTL_MS ? pendingMoment : null);
+const baseMoment = () => activePending() ?? state.moment;
 
 function goToMoment(t, smooth = true) {
   if (!tlGeom) return;
   const target = clamp(t, tlGeom.t0, tlGeom.t1);
-  pendingMoment = smooth && !reducedMotion() ? target : null;
+  setPending(target);
   el.tlScroller.scrollTo({ left: momentToScroll(target), behavior: smooth && !reducedMotion() ? 'smooth' : 'auto' });
   if (!smooth || reducedMotion()) {
     state.moment = target;
@@ -853,7 +862,9 @@ el.tlScroller.addEventListener('scroll', () => {
     tlFrame = 0;
     if (!tlGeom) return;
     state.moment = momentFromScroll();
-    if (pendingMoment !== null && Math.abs(state.moment - pendingMoment) < 60) pendingMoment = null;
+    const pending = activePending();
+    // Within one pixel of the target: use the exact time, not the rounded scroll position
+    if (pending !== null && Math.abs(state.moment - pending) <= (3600 / PX_PER_HOUR) * 1.01) state.moment = pending;
     renderMoment();
   });
 }, { passive: true });
@@ -915,6 +926,7 @@ el.backToNow.addEventListener('click', () => goToMoment(tlGeom ? tlGeom.t0 : 0))
 window.addEventListener('resize', () => {
   if (!tlGeom) return;
   sizeTimeline();
+  setPending(state.moment);
   el.tlScroller.scrollLeft = momentToScroll(state.moment);
 });
 
@@ -937,6 +949,7 @@ function renderAll({ resetMoment = true } = {}) {
   renderFreshness();
   renderCoverageLabels();
   const t = resetMoment || !keep ? state.points[0].dt : clamp(keep, tlGeom.t0, tlGeom.t1);
+  setPending(t);
   el.tlScroller.scrollLeft = momentToScroll(t);
   state.moment = t;
   renderMoment();
@@ -960,6 +973,13 @@ function startClock(tz, country) {
   clockTimer = setInterval(tick, 15000);
 }
 
+// Was this moment reported by the API, or estimated between two readings?
+const READING_MATCH_SECONDS = 5 * 60;
+function momentSource(t) {
+  if (t <= state.points[0].dt + NOW_WINDOW) return 'current';
+  return state.points.some((p) => Math.abs(p.dt - t) <= READING_MATCH_SECONDS) ? 'reading' : 'estimated';
+}
+
 // Everything that follows the timeline
 function renderMoment() {
   if (!state.current || !state.points.length) return;
@@ -967,7 +987,9 @@ function renderMoment() {
   const isNow = t <= state.points[0].dt + NOW_WINDOW;
   const p = pointAt(t);
   const day = dayFor(t);
-  const shortWhen = isNow ? 'Now' : `${fmtDay(t)} ${fmtTime(t)}`;
+  const source = momentSource(t);
+  const estimated = source === 'estimated';
+  const shortWhen = isNow ? 'Now' : `${fmtDay(t)} ${fmtTime(t)}${estimated ? ' · est.' : ''}`;
 
   // Hero
   el.temperature.textContent = units.temp(p.temp);
@@ -983,7 +1005,7 @@ function renderMoment() {
   el.heroIcon.alt = capitalize(p.weather.description);
   el.summary.textContent = buildSummary(t, p, isNow);
   el.momentChip.hidden = isNow;
-  if (!isNow) el.momentLabel.textContent = `${fmtDay(t, { weekday: 'long' })}, ${fmtTime(t)}`;
+  if (!isNow) el.momentLabel.textContent = `${fmtDay(t, { weekday: 'long' })}, ${fmtTime(t)} · ${estimated ? 'estimated between forecast readings' : 'forecast reading'}`;
 
   const advisory = buildAdvisory(p);
   el.advisory.hidden = !advisory;
@@ -992,17 +1014,16 @@ function renderMoment() {
     el.advisoryText.textContent = advisory.text;
   }
   renderSky(t, p);
-  if (isNow) {
-    const name = (state.place && state.place.name) || state.current.name;
-    document.title = `${name} ${units.deg(state.current.main.temp)} — SkyPulse`;
-  }
+  // The tab title always shows the current temperature, whichever moment is selected
+  const titleName = (state.place && state.place.name) || state.current.name;
+  document.title = `${titleName} ${units.deg(state.current.main.temp)} — SkyPulse`;
 
   // Timeline cursor
   el.tlCursorLabel.textContent = shortWhen;
   el.tlNow.setAttribute('aria-pressed', String(isNow));
   const hours = Math.round((t - state.points[0].dt) / 3600);
   el.tlScroller.setAttribute('aria-valuenow', String(hours));
-  el.tlScroller.setAttribute('aria-valuetext', `${isNow ? 'Now' : `${fmtDay(t, { weekday: 'long' })} ${fmtTime(t)}`}, ${units.deg(p.temp)}, ${p.weather.description}`);
+  el.tlScroller.setAttribute('aria-valuetext', `${isNow ? 'Now' : `${fmtDay(t, { weekday: 'long' })} ${fmtTime(t)}${estimated ? ', estimated' : ', forecast reading'}`}, ${units.deg(p.temp)}, ${p.weather.description}`);
   const dot = document.getElementById('tl-dot');
   if (dot && tlGeom) {
     dot.setAttribute('transform', `translate(${tlGeom.x(t).toFixed(1)} ${tlGeom.y(p.temp).toFixed(1)})`);
@@ -1134,7 +1155,8 @@ function renderAir(t, isNow) {
     el.aqiValue.textContent = '--';
     el.aqiCategory.textContent = '';
     el.aqiMarker.hidden = true;
-    const loading = isNow ? !state.air : !state.airForecast;
+    $('aqi-index').textContent = '';
+    const loading = isNow ? state.airStatus === 'loading' : state.airForecastStatus === 'loading';
     el.aqiPollutants.innerHTML = `<div><dt>Status</dt><dd>${loading ? 'Loading' : isNow ? 'Unavailable' : 'Not forecast this far ahead'}</dd></div>`;
     return;
   }
@@ -1144,6 +1166,8 @@ function renderAir(t, isNow) {
   el.aqiCategory.textContent = aqi === null ? '' : AQI_LEVELS.find((l) => aqi <= l.max).label;
   el.aqiMarker.hidden = aqi === null;
   if (aqi !== null) el.aqiMarker.style.left = `${clamp(aqi / 300, 0, 1) * 100}%`;
+  const apiIndex = entry.main && entry.main.aqi;
+  $('aqi-index').textContent = SkyInsights.AIR_LABELS[apiIndex] ? `US AQI from PM2.5. OpenWeatherMap index: ${apiIndex} of 5 (${SkyInsights.AIR_LABELS[apiIndex]})` : 'US AQI from PM2.5.';
   const items = [['PM2.5', c.pm2_5], ['PM10', c.pm10], ['O₃', c.o3], ['NO₂', c.no2]];
   el.aqiPollutants.innerHTML = items.map(([label, v]) => `
     <div><dt>${label}</dt><dd>${isNum(v) ? Math.round(v) : '--'} <small>µg/m³</small></dd></div>`).join('');
@@ -1331,6 +1355,22 @@ function windowDayLabel(dt) {
   return fmtDay(dt, { weekday: 'long' });
 }
 
+// Current and hourly forecast air readings, on the API's 1-5 scale
+function airReadings() {
+  const list = [...((state.air && state.air.list) || []), ...((state.airForecast && state.airForecast.list) || [])];
+  return list.map((e) => ({ dt: e.dt, aqi: e.main ? e.main.aqi : null }));
+}
+
+function computeWindows() {
+  return SkyInsights.findWeatherWindows(state.activity, state.points, { now: nowSec(), tz: tzOffset(), horizonHours: 48, air: airReadings() });
+}
+
+function windowDataNote(w) {
+  const n = w.readingsInWindow;
+  const readings = `${n} forecast reading${n === 1 ? '' : 's'}`;
+  return w.estimatedSamples ? `Hourly values estimated from ${readings}` : `${readings}`;
+}
+
 function windowCard(w, i) {
   const selected = state.selectedWindow && state.selectedWindow.start === w.start;
   const extras = [];
@@ -1344,7 +1384,11 @@ function windowCard(w, i) {
       <span class="win-bar-track" aria-hidden="true"><i style="width:${b.score}%"></i></span>
       <b>${b.score}</b>
     </div>`).join('');
-  const deductions = w.adjustments.map((a) => `<li>${esc(a.reason)}: ${a.points} points</li>`).join('');
+  const deductions = [
+    ...w.adjustments.map((a) => `<li>${esc(a.reason)}: ${a.points} points</li>`),
+    ...w.caps.map((c) => `<li>Score limited to ${c.max}: ${esc(c.reason)}</li>`)
+  ].join('');
+  const airText = w.air ? `${w.air.label} air (${w.air.index}/5)` : 'Air: no data';
   return `
     <article class="win-card ${CATEGORY_CLASS[w.category.id]}">
       <button type="button" class="win-main" data-window="${i}" aria-pressed="${!!selected}"
@@ -1361,11 +1405,15 @@ function windowCard(w, i) {
           <span>${units.deg(w.temp)}</span>
           <span>${Math.round(w.pop * 100)}% rain</span>
           <span>${units.wind(w.wind)} ${units.windUnit()} wind</span>
+          <span class="${w.air && w.air.index < 4 ? '' : 'win-air-alert'}">${esc(airText)}</span>
         </span>
         <span class="win-reason">${esc(w.reasons.join('. '))}.</span>
+        ${w.warnings.length ? `<span class="win-warning">${esc(w.warnings[0])}</span>` : ''}
       </button>
       <details class="win-details">
         <summary>Why this score</summary>
+        <p class="win-extra">${esc(windowDataNote(w))}.</p>
+        ${w.warnings.slice(1).map((x) => `<p class="win-extra">${esc(x)}</p>`).join('')}
         <div class="win-breakdown">${breakdown}</div>
         ${deductions ? `<ul class="win-deductions">${deductions}</ul>` : ''}
         ${extras.length ? `<p class="win-extra">${esc(extras.join(' · '))}</p>` : ''}
@@ -1378,7 +1426,7 @@ function renderWindows() {
   const box = $('window-results');
   document.querySelectorAll('[data-activity]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.activity === state.activity)));
   if (!state.points.length) return;
-  state.windows = SkyInsights.findWeatherWindows(state.activity, state.points, { now: nowSec(), tz: tzOffset(), horizonHours: 48 });
+  state.windows = computeWindows();
   if (state.selectedWindow && !state.windows.some((w) => w.start === state.selectedWindow.start)) {
     state.selectedWindow = null;
     updateTimelineWindow();
@@ -1391,8 +1439,10 @@ function renderWindows() {
   }
   box.innerHTML = state.windows.map(windowCard).join('');
   const allPoor = state.windows.every((w) => w.category.id === 'poor');
-  note.hidden = !allPoor;
-  if (allPoor) note.textContent = `No period looks good for ${SkyInsights.ACTIVITIES[state.activity].label.toLowerCase()} in the available forecast. These are the least unfavorable.`;
+  const airLoading = state.airForecastStatus === 'loading';
+  note.hidden = !allPoor && !airLoading;
+  if (airLoading) note.textContent = 'Checking air quality. Scores may change when it loads.';
+  else if (allPoor) note.textContent = `No period looks good for ${SkyInsights.ACTIVITIES[state.activity].label.toLowerCase()} in the available forecast. These are the least unfavorable.`;
 }
 
 $('activity-tabs').addEventListener('click', (e) => {
@@ -1584,7 +1634,10 @@ function analyticsConfig(view, palette, { animate = true, showWind = false, resp
           padding: 10,
           cornerRadius: 10,
           callbacks: {
-            title: (items) => { const p = pts[items[0].dataIndex]; return `${fmtDay(p.dt, { weekday: 'long' })}, ${fmtTime(p.dt)}`; }
+            title: (items) => {
+              const p = pts[items[0].dataIndex];
+              return `${fmtDay(p.dt, { weekday: 'long' })}, ${fmtTime(p.dt)} (${p.isCurrent ? 'current observation' : 'forecast reading'})`;
+            }
           }
         }
       },
@@ -2036,7 +2089,9 @@ function buildReportHtml() {
   const activityLabel = SkyInsights.ACTIVITIES[state.activity].label;
   const fresh = SkyInsights.describeFreshness(state.forecastFetchedAt, Date.now());
   const { insights } = buildBriefing();
-  const windows = SkyInsights.findWeatherWindows(state.activity, state.points, { now, tz: tzOffset(), horizonHours: 48 });
+  const windows = computeWindows();
+  const apiAirEntry = state.air && state.air.list && state.air.list[0];
+  const apiAirIndex = apiAirEntry && apiAirEntry.main ? apiAirEntry.main.aqi : null;
   const chartImage = reportChartImage();
 
   const rows = [
@@ -2046,7 +2101,8 @@ function buildReportHtml() {
     ['Pressure', `${units.pressure(cur.main.pressure)} ${units.pressureUnit()}`],
     ['Visibility', units.distance(cur.visibility)],
     ['UV index', isNum(state.uvi) ? Math.round(state.uvi) : 'Unavailable'],
-    ['Air quality (US AQI)', aqi ? `${aqi.value} (${aqi.label})` : 'Unavailable'],
+    ['Air quality (US AQI from PM2.5)', aqi ? `${aqi.value} (${aqi.label})` : 'Unavailable'],
+    ['Air quality (OpenWeatherMap index)', SkyInsights.AIR_LABELS[apiAirIndex] ? `${apiAirIndex} of 5 (${SkyInsights.AIR_LABELS[apiAirIndex]})` : 'Unavailable'],
     ['Sunrise / sunset', `${fmtTime(cur.sys.sunrise)} / ${fmtTime(cur.sys.sunset)}`]
   ];
 
@@ -2067,7 +2123,7 @@ function buildReportHtml() {
         <div class="pdf-muted" style="max-width:340px;text-align:right">${esc(buildSummary(p0.dt, p0, true))}</div>
       </div>
       <section class="pdf-block">
-        <h2>Current conditions</h2>
+        <h2>Current conditions (observed)</h2>
         <table><tbody>${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
       </section>
       ${insights.length ? `
@@ -2085,7 +2141,7 @@ function buildReportHtml() {
       <section class="pdf-block">
         <h2>Best weather windows for ${esc(activityLabel.toLowerCase())}</h2>
         <table>
-          <thead><tr><th>When</th><th>Score</th><th>Temp</th><th>Rain</th><th>Wind</th><th>Why</th></tr></thead>
+          <thead><tr><th>When</th><th>Score</th><th>Temp</th><th>Rain</th><th>Wind</th><th>Air</th><th>Why</th></tr></thead>
           <tbody>${windows.map((w) => `
             <tr>
               <td style="white-space:nowrap">${esc(windowDayLabel(w.start))}<br>${esc(fmtTime(w.start))} – ${esc(fmtTime(w.end))}</td>
@@ -2093,13 +2149,15 @@ function buildReportHtml() {
               <td>${units.deg(w.temp)}</td>
               <td>${Math.round(w.pop * 100)}%</td>
               <td style="white-space:nowrap">${units.wind(w.wind)} ${units.windUnit()}</td>
-              <td>${esc(w.reasons.join('. '))}.</td>
+              <td>${w.air ? `${esc(w.air.label)}<br>${w.air.index}/5` : 'No data'}</td>
+              <td>${esc(w.reasons.join('. '))}.${w.warnings.length ? `<br><b>${esc(w.warnings[0])}</b>` : ''}<br><span class="pdf-muted">${esc(windowDataNote(w))}.</span></td>
             </tr>`).join('')}
           </tbody>
         </table>
+        <p class="pdf-note">Window scores use hourly values estimated between the API's 3-hour forecast readings. Air uses OpenWeatherMap's hourly 1-5 index, taking the worst hour in the window.</p>
       </section>` : ''}
       <section class="pdf-block">
-        <h2>${coverageDays()}-day forecast</h2>
+        <h2>${coverageDays()}-day forecast (from API readings)</h2>
         <table>
           <thead><tr><th>Day</th><th>Conditions</th><th>Low</th><th>High</th><th>Rain chance</th></tr></thead>
           <tbody>${state.daily.map((d, i) => `
@@ -2115,11 +2173,41 @@ function buildReportHtml() {
       </section>
       ${chartImage ? `
       <section class="pdf-block">
-        <h2>Forecast analytics</h2>
+        <h2>Forecast analytics (API readings every 3 hours)</h2>
         <img class="pdf-chart" src="${chartImage}" alt="Temperature and rain chance for the next ${coverageLabel()}" />
       </section>` : ''}
       <footer>Data: OpenWeatherMap. Scores and briefing are rule-based guidance, not safety advice. Generated ${esc(new Date().toLocaleString())}.</footer>
     </div>`;
+}
+
+// html2pdf's page-break plugin measures every block before inserting spacers, which drifts on
+// long reports and cut off the chart. Instead, place each section on an exact-height A4 page.
+const PDF_PAGE_HEIGHT = 1062; // CSS pixels of printable A4 at the report's 733px width
+const PDF_PAGE_PADDING = 40;
+
+async function paginateReport(report) {
+  await Promise.all([...report.querySelectorAll('img')].map((img) => img.decode().catch(() => {})));
+  const blocks = [...report.children].map((node) => {
+    const style = getComputedStyle(node);
+    return { node, height: node.getBoundingClientRect().height + parseFloat(style.marginTop) + parseFloat(style.marginBottom) };
+  });
+  const pages = [];
+  let page = null;
+  let used = 0;
+  for (const { node, height } of blocks) {
+    if (!page || used + height > PDF_PAGE_HEIGHT - PDF_PAGE_PADDING) {
+      page = document.createElement('div');
+      page.className = 'pdf-page';
+      page.style.height = `${PDF_PAGE_HEIGHT}px`;
+      pages.push(page);
+      used = 0;
+    }
+    page.appendChild(node);
+    used += height;
+  }
+  report.classList.add('is-paginated');
+  report.replaceChildren(...pages);
+  return pages.length;
 }
 
 const pdfOptions = (name) => ({
@@ -2128,7 +2216,7 @@ const pdfOptions = (name) => ({
   image: { type: 'jpeg', quality: 0.96 },
   html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
   jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  pagebreak: { mode: ['css', 'legacy'], avoid: ['.pdf-block'] }
+  pagebreak: { mode: [] }
 });
 
 el.pdfBtn.addEventListener('click', async () => {
@@ -2144,6 +2232,7 @@ el.pdfBtn.addEventListener('click', async () => {
   document.body.appendChild(wrap);
   el.pdfBtn.disabled = true;
   try {
+    await paginateReport(wrap.firstElementChild);
     await html2pdf().set(pdfOptions(name)).from(wrap.firstElementChild).save();
     toast('Report downloaded');
   } catch (e) {
@@ -2188,7 +2277,7 @@ function registerServiceWorker() {
 function init() {
   state.units = store.get('units') === 'imperial' ? 'imperial' : 'metric';
   const savedActivity = store.get('activity');
-  if (SkyInsights.ACTIVITIES[savedActivity]) state.activity = savedActivity;
+  if (SkyInsights.isActivity(savedActivity)) state.activity = savedActivity;
   document.querySelectorAll('[data-activity]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.activity === state.activity)));
   document.querySelectorAll('[data-units]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.units === state.units)));
   applyThemeLabel();

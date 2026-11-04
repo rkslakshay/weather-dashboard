@@ -216,6 +216,7 @@
         </div>
         <div class="tl-cursor" aria-hidden="true"><span id="tl-cursor-label">Now</span></div>
       </div>
+      <p class="tl-legend"><i aria-hidden="true"></i>Forecast reading, every 3 hours. Values between readings are estimated.</p>
     </section>
 
     <!-- ============ WEATHER WINDOW FINDER ============ -->
@@ -234,7 +235,7 @@
       <div id="window-results" class="window-results" aria-live="polite">
         <div class="sk sk-win"></div><div class="sk sk-win"></div><div class="sk sk-win"></div>
       </div>
-      <p class="finder-foot">The best 3-hour periods up to 48 hours ahead, scored from the forecast. Pick one to see it on the timeline. Hourly values are estimated between 3-hour forecast readings.</p>
+      <p class="finder-foot">The best 3-hour periods up to 48 hours ahead, scored from the forecast. Pick one to see it on the timeline. The API reports every 3 hours, so hourly values are estimated between those readings. Air quality uses the API's hourly 1–5 index.</p>
     </section>
 
     <!-- ============ PERSONAL BRIEFING ============ -->
@@ -296,6 +297,7 @@
           <h3 class="tile-title"><svg class="icon" aria-hidden="true"><use href="#i-leaf"/></svg>Air quality</h3>
           <p class="tile-value"><span id="aqi-value">--</span> <small id="aqi-category"></small></p>
           <div class="scale scale-aqi" aria-hidden="true"><span id="aqi-marker" class="scale-marker"></span></div>
+          <p id="aqi-index" class="tile-sub"></p>
           <dl id="aqi-pollutants" class="pollutants"></dl>
         </article>
 
@@ -380,6 +382,7 @@
         </div>
         <div id="analytics-wrap" class="analytics-wrap"><canvas id="analytics-chart" role="img" aria-label="Forecast chart"></canvas></div>
         <p id="analytics-fallback" class="empty-state" hidden></p>
+        <p class="tl-legend">Each point is an API reading ("Now" is the current observation). Lines between them are drawn for readability, not measured.</p>
       </section>
 
       <!-- ============ RADAR ============ -->
