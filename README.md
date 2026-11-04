@@ -1,39 +1,79 @@
-# Weather Dashboard 🌤️
+# SkyPulse — An Intelligent Weather Dashboard with Personalized Insights
 
-A feature-packed, responsive weather dashboard built with vanilla JavaScript, HTML5, and CSS3. Powered by the OpenWeatherMap REST API with interactive Leaflet maps, Chart.js analytics, PDF reporting, PWA offline support, and a secure serverless API proxy.
+SkyPulse turns a raw forecast into decisions: when to go out, what to wear and what to watch for. It is built with vanilla JavaScript, HTML and CSS, and uses a serverless proxy so the OpenWeatherMap API key never reaches the browser.
 
-[![Checklist Status](https://img.shields.io/badge/Checklist-100%25%20Completed-brightgreen)](#-project-checklist--feature-status)
 [![PWA Ready](https://img.shields.io/badge/PWA-Enabled-blue)](manifest.json)
 [![CI Pipeline](https://img.shields.io/badge/CI-Automated-success)](.github/workflows/ci-deploy.yml)
 
-*See full development roadmap in [CHECKLIST.md](CHECKLIST.md).*
+*Feature status is tracked in [CHECKLIST.md](CHECKLIST.md).*
 
 ---
 
-## 📋 Highlights & Key Features
+## 🎯 Weather Window Finder
 
-- 🏙️ **Remembers your city**: Reopens the last place you viewed (Delhi on first visit).
-- 🔍 **City search with autocomplete**: Ranked suggestions with country flags, full keyboard support (`/` to focus, `↑`, `↓`, `Enter`, `Esc`) and screen-reader combobox semantics. Picking a suggestion loads by coordinates, so "Paris, Texas" never becomes Paris, France.
-- 🌡️ **Full unit system**: °C / °F switches every value: temperature, wind (km/h ↔ mph), visibility (km ↔ mi) and pressure (hPa ↔ inHg).
-- 📅 **Accurate 5-day forecast**: Days are grouped in the city's own time zone, with daily highs/lows, rain chance and temperature-range bars.
-- 🕰️ **Scrollable 5-day timeline**: Scroll or drag a temperature curve through the next 5 days (arrow keys work too). The hero temperature, every highlight tile, air quality and the sky scene all follow the moment you pick.
-- 🧭 **Highlights**: Wind compass with gusts, humidity and dew point, UV index, air quality (US AQI with PM2.5 / PM10 / O₃ / NO₂), feels-like, visibility, pressure, precipitation and a live sunrise–sunset arc.
-- 🗺️ **Weather map**: A Leaflet map with rain, cloud, temperature and wind layers (tiles proxied so the API key stays private).
-- 🌅 **Living sky**: A full-width sky scene with sun, moon, stars, clouds, rain, snow, fog and lightning, driven by real conditions and the sun's position. Light and dark themes follow your system by default.
-- ⭐ **Favorites, recent places & city comparison**, plus a **PDF report** of current conditions and the 5-day forecast.
-- 📱 **PWA**: Installable, works offline with the last loaded data, and always fetches fresh code after a deploy.
+Pick an activity and SkyPulse ranks the best non-overlapping 3-hour periods up to 48 hours ahead. Each result shows the date, time range, score out of 100, category, temperature, rain chance, wind and the reasons behind the ranking. Selecting a result moves the forecast timeline to that time and highlights the period.
+
+| Activity | Preferred temperature | Wind below | Rain chance below | Also considers |
+|---|---|---|---|---|
+| Walking | 15–24°C | 25 km/h | 20% | Humidity 30–70% |
+| Running | 10–18°C | 20 km/h | 15% | Humidity and heat, penalized sooner |
+| Cycling | 14–22°C | 15 km/h | 10% | Extra penalty for gusts above 30 km/h |
+| Outdoor dining | 20–26°C | 12 km/h | 5% | Lunch 12–2 PM and dinner 7–10 PM |
+
+These are configurable preferences in `ACTIVITIES` (`insights.js`), not safety thresholds.
+
+**How scoring works.** The calculation is deterministic and involves no AI model:
+
+1. **Hourly samples.** OpenWeatherMap's free forecast is 3-hourly, so hourly values are interpolated between real readings. Nothing is extrapolated beyond coverage, and a window can never span a gap in the data.
+2. **Metric scores.** Temperature, rain chance, wind, humidity and gusts each score 0–100 against the activity's preferences (100 inside the range, falling linearly outside it).
+3. **Weighted average.** Each activity has its own weights.
+4. **Deductions.** Storms, snow, rain, high heat, sub-zero feels-like temperatures, strong gusts when cycling, low visibility and late-night hours subtract points.
+5. **Categories.** 85–100 Optimal, 70–84 Good, 50–69 Fair, below 50 Poor.
+
+**Missing data is never treated as zero or ideal.** A window missing temperature, rain chance or wind is not scored at all. Missing humidity or gusts drop out of the average, and the card says so. If coverage only allows one or two windows, only those are shown.
+
+## 💡 Personal Weather Briefing
+
+A rule-based summary of current conditions and the next 24 hours, with the most important items first:
+
+- **Outfit & Comfort**: based on the feels-like temperature, explaining wind chill or humidity when they matter.
+- **Rain & Umbrella**: the highest-risk period, expected amount, and whether an umbrella or waterproofs may help. It speaks in chances, not promises.
+- **Sun Protection**: follows the reported UV index. The API gives one daily value, so no peak hour is claimed.
+- **Air Quality**: US AQI derived from PM2.5, using the same value as the air quality tile.
+- **Wind & Outdoor Activities**: current wind and the strongest gusts ahead, with cycling and outdoor guidance.
+
+Sections with no data are left out and named as unavailable. The briefing updates when the city, data or units change.
+
+## 📊 More Features
+
+- **Scrollable forecast timeline**: a custom SVG curve (Catmull-Rom). The hero, tiles, air quality and sky follow the selected moment. Works by scroll, drag, click and keyboard.
+- **Forecast analytics**: a supplementary Chart.js 4.4.1 chart with temperature, precipitation chance and optional wind on separate axes, in 24-hour and full-forecast views. Clicking it moves the timeline.
+- **Living sky**: sun, moon, stars, clouds, rain, snow, fog and lightning driven by real conditions.
+- **Environmental data**: US AQI and pollutants, UV, dew point, wind compass, visibility, pressure, and a sunrise-sunset arc.
+- **Weather map**: Leaflet with rain, cloud, temperature and wind layers (tiles proxied to protect the key).
+- **Places**: autocomplete search, geolocation, favorites, recent places and city comparison.
+- **PDF report**: current conditions, briefing, top windows for the selected activity, forecast table and chart, in the selected units.
+- **PWA**: installable, with offline support. Saved data is labelled with its age ("Saved forecast from 3 hr ago"), so it is never mistaken for live data.
+- **Units and themes**: °C/°F across every value, plus light and dark themes.
 
 ---
 
 ## 🛠️ Architecture & Tech Stack
 
-- **Frontend**: Semantic HTML5, Glassmorphism CSS3 (CSS Grid & Flexbox, CSS Variables, Theme Transitions)
-- **Logic**: Vanilla ES6+ JavaScript (Async/Await, Cache Storage, Service Worker API, Geolocation API, Canvas)
-- **Security & Proxy**: Serverless Node.js API Proxy (`api/weather.js`) with security headers in `vercel.json`
-- **Data & APIs**: OpenWeatherMap API (Current Weather, 5-Day Forecast, Air Pollution, Geo Direct)
-- **Mapping & Charts**: Leaflet.js, OpenStreetMap tiles, Chart.js
-- **Exporting**: html2pdf.js / html2canvas
-- **CI/CD**: GitHub Actions automated syntax check; deployed on Vercel
+| File | Purpose |
+|---|---|
+| `index.html`, `style.css` | Page structure and design system |
+| `script.js` | UI, API layer, timeline, map, chart and PDF |
+| `insights.js` | Pure scoring and briefing engines (`scoreWeatherWindow`, `findWeatherWindows`, `generatePersonalBriefing`) |
+| `api/weather.js` | Serverless proxy that holds the API key and allow-lists endpoints |
+| `service-worker.js` | Offline shell and network-first data caching |
+| `vendor/chart.umd.js` | Chart.js 4.4.1, bundled locally so the chart works offline |
+| `dev-server.js` | Zero-dependency local server, including the API route |
+| `test/insights.test.js` | Engine tests |
+
+There is no build step and no npm dependencies. Other libraries: Leaflet and html2pdf.js (pinned CDN versions). Data: OpenWeatherMap current weather, 5-day/3-hour forecast, air pollution and forecast, UV, geocoding and map tiles.
+
+**Configuration:** set `OPENWEATHER_API_KEY` as a server-side environment variable. Never put a key in committed code.
 
 ---
 
@@ -73,3 +113,19 @@ A feature-packed, responsive weather dashboard built with vanilla JavaScript, HT
    node dev-server.js
    ```
    Then open http://localhost:3000. Opening `index.html` through any other static server also works: without the proxy, the app calls OpenWeatherMap directly with the `config.js` key.
+
+---
+
+## 🧪 Testing
+
+```bash
+node --test test/insights.test.js
+```
+
+The tests run in CI, alongside syntax checks, on every push.
+
+---
+
+## 📸 Screenshots
+
+No screenshots are committed yet. To add them, save images to `assets/screenshots/` and link them here, for example `![Weather Window Finder](assets/screenshots/finder.png)`.

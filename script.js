@@ -66,6 +66,14 @@ const state = {
   airForecast: null,  // /air_pollution/forecast response
   uvi: null,
   compare: null,
+  activity: 'walking',
+  windows: [],
+  selectedWindow: null,   // { start, end } highlighted on the timeline
+  chartView: '5d',
+  airStatus: 'loading',   // 'loading' | 'done' (data or failure)
+  uvStatus: 'loading',
+  forecastFetchedAt: null,
+  loadFailed: false,
   moment: 0,          // unix time shown across the page
   loadedAt: 0
 };
@@ -243,13 +251,26 @@ class ApiError extends Error {
   }
 }
 
+// When each response was actually fetched, so saved data can be labelled as saved
+const fetchedAt = new WeakMap();
+
 function cacheGet(key, ttl) {
   const entry = store.get(`weather_cache_${key}`);
-  if (entry && entry.timestamp && Date.now() - entry.timestamp < ttl) return entry.data;
+  if (entry && entry.timestamp && entry.data && Date.now() - entry.timestamp < ttl) {
+    fetchedAt.set(entry.data, entry.timestamp);
+    return entry.data;
+  }
   return null;
 }
 function cacheSet(key, data) {
-  store.set(`weather_cache_${key}`, { timestamp: Date.now(), data });
+  store.set(`weather_cache_${key}`, { timestamp: fetchedAt.get(data), data });
+}
+
+// A response replayed by the service worker keeps its original Date header
+function responseTime(res) {
+  const date = Date.parse(res.headers.get('date') || '');
+  const age = Number(res.headers.get('age')) || 0;
+  return isNum(date) ? Math.min(Date.now(), date - age * 1000) : Date.now();
 }
 
 async function fetchWithTimeout(url) {
@@ -292,6 +313,24 @@ async function fetchWeatherApi(endpoint, params = {}, { ttl = CACHE_TTL_MS, cach
     if (hit) return hit;
   }
 
+  let res;
+  try {
+    res = await requestWeather(endpoint, query);
+  } catch (err) {
+    // Unreachable network: fall back to the last saved copy, however old; the UI labels its age
+    if (cache && err.kind !== 'http') {
+      const saved = cacheGet(cacheKey, Infinity);
+      if (saved) return saved;
+    }
+    throw err;
+  }
+  const data = await res.json();
+  fetchedAt.set(data, responseTime(res));
+  if (cache) cacheSet(cacheKey, data);
+  return data;
+}
+
+async function requestWeather(endpoint, query) {
   if (isProxyAvailable) {
     let res = null;
     try {
@@ -301,11 +340,7 @@ async function fetchWeatherApi(endpoint, params = {}, { ttl = CACHE_TTL_MS, cach
     }
     if (res) {
       const isJson = (res.headers.get('content-type') || '').includes('application/json');
-      if (res.ok && isJson) {
-        const data = await res.json();
-        if (cache) cacheSet(cacheKey, data);
-        return data;
-      }
+      if (res.ok && isJson) return res;
       if (isJson || !API_KEY) throw await readError(res);
       isProxyAvailable = false; // static host with no API route; use direct mode
     }
@@ -314,9 +349,7 @@ async function fetchWeatherApi(endpoint, params = {}, { ttl = CACHE_TTL_MS, cach
   if (!API_KEY) throw new ApiError('No API key configured for direct requests', { status: 401 });
   const res = await fetchWithTimeout(`${DIRECT_URLS[endpoint]}?${query}&appid=${API_KEY}`);
   if (!res.ok) throw await readError(res);
-  const data = await res.json();
-  if (cache) cacheSet(cacheKey, data);
-  return data;
+  return res;
 }
 
 function describeError(err, place) {
@@ -350,7 +383,13 @@ async function loadPlace(place, { silent = false } = {}) {
     ]);
     if (seq !== loadSeq) return; // a newer search started meanwhile
 
-    Object.assign(state, { place, current, forecast, air: null, airForecast: null, uvi: null, loadedAt: Date.now() });
+    const sameRequest = state.place === place;
+    Object.assign(state, {
+      place, current, forecast, air: null, airForecast: null, uvi: null, loadedAt: Date.now(),
+      airStatus: 'loading', uvStatus: 'loading', loadFailed: false,
+      forecastFetchedAt: fetchedAt.get(forecast) ?? Date.now(),
+      selectedWindow: sameRequest ? state.selectedWindow : null
+    });
     state.points = buildPoints();
     state.daily = buildDaily();
 
@@ -371,15 +410,23 @@ async function loadPlace(place, { silent = false } = {}) {
     const { lat, lon } = current.coord;
     const ttl = { ttl: 15 * 60 * 1000 };
     fetchWeatherApi('air_pollution', { lat, lon }, ttl)
-      .then((d) => { if (seq === loadSeq) { state.air = d; renderMoment(); } }).catch(() => {});
+      .then((d) => { if (seq === loadSeq) state.air = d; })
+      .catch(() => {})
+      .finally(() => { if (seq === loadSeq) { state.airStatus = 'done'; renderMoment(); renderBriefing(); } });
     fetchWeatherApi('air_pollution_forecast', { lat, lon }, ttl)
       .then((d) => { if (seq === loadSeq) { state.airForecast = d; renderMoment(); } }).catch(() => {});
     fetchWeatherApi('uvi', { lat, lon }, ttl)
-      .then((d) => { if (seq === loadSeq) { state.uvi = isNum(d && d.value) ? d.value : null; renderMoment(); } }).catch(() => {});
+      .then((d) => { if (seq === loadSeq) state.uvi = isNum(d && d.value) ? d.value : null; })
+      .catch(() => {})
+      .finally(() => { if (seq === loadSeq) { state.uvStatus = 'done'; renderMoment(); renderBriefing(); } });
   } catch (err) {
     if (seq !== loadSeq) return;
     const retryable = err.kind !== 'http' || err.status === 429 || err.status >= 500;
     showError(describeError(err, place), retryable ? () => loadPlace(place) : null);
+    if (firstLoad) {
+      state.loadFailed = true;
+      renderInsightsUnavailable();
+    }
   } finally {
     if (seq === loadSeq) {
       stopProgress();
@@ -697,6 +744,8 @@ function renderTimeline() {
       </linearGradient>
     </defs>`];
 
+  parts.push(`<rect id="tl-window" class="tl-window" y="24" height="${TL.barBase - 24}" rx="8" display="none"/>`);
+
   // Night shading from (approximate) sunset to sunrise
   const { sunrise, sunset } = state.current.sys;
   if (sunrise && sunset) {
@@ -750,6 +799,23 @@ function renderTimeline() {
     <div class="tl-spacer"></div>`;
   el.tlScroller.setAttribute('aria-valuemax', String(Math.round((t1 - t0) / 3600)));
   sizeTimeline();
+  updateTimelineWindow();
+}
+
+// Marks the Weather Window chosen in the finder on the existing timeline
+function updateTimelineWindow() {
+  const rect = document.getElementById('tl-window');
+  if (!rect || !tlGeom) return;
+  const w = state.selectedWindow;
+  if (!w) {
+    rect.setAttribute('display', 'none');
+    return;
+  }
+  const x1 = clamp(tlGeom.x(w.start), 0, tlGeom.width);
+  const x2 = clamp(tlGeom.x(w.end), 0, tlGeom.width);
+  rect.setAttribute('x', x1.toFixed(1));
+  rect.setAttribute('width', Math.max(x2 - x1, 0).toFixed(1));
+  rect.removeAttribute('display');
 }
 
 // The cursor sits near the left so most of the visible timeline is the future
@@ -865,6 +931,11 @@ function renderAll({ resetMoment = true } = {}) {
   renderPlaces();
   renderCompare();
   renderRadar();
+  renderWindows();
+  renderBriefing();
+  renderAnalytics();
+  renderFreshness();
+  renderCoverageLabels();
   const t = resetMoment || !keep ? state.points[0].dt : clamp(keep, tlGeom.t0, tlGeom.t1);
   el.tlScroller.scrollLeft = momentToScroll(t);
   state.moment = t;
@@ -1248,6 +1319,353 @@ el.compareForm.addEventListener('submit', (e) => {
 });
 
 /* ==========================================================================
+   Weather Window Finder (scoring lives in insights.js)
+   ========================================================================== */
+const CATEGORY_CLASS = { optimal: 'cat-optimal', good: 'cat-good', fair: 'cat-fair', poor: 'cat-poor' };
+
+function windowDayLabel(dt) {
+  const key = dayKey(dt);
+  const now = nowSec();
+  if (key === dayKey(now)) return 'Today';
+  if (key === dayKey(now + 86400)) return 'Tomorrow';
+  return fmtDay(dt, { weekday: 'long' });
+}
+
+function windowCard(w, i) {
+  const selected = state.selectedWindow && state.selectedWindow.start === w.start;
+  const extras = [];
+  if (isNum(w.gust)) extras.push(`Gusts ${units.wind(w.gust)} ${units.windUnit()}`);
+  if (isNum(w.humidity)) extras.push(`Humidity ${Math.round(w.humidity)}%`);
+  if (w.rainMm >= 0.1) extras.push(`Rain about ${units.rain(w.rainMm)}`);
+  if (w.snowMm >= 0.1) extras.push(`Snow about ${units.rain(w.snowMm)}`);
+  const breakdown = w.breakdown.map((b) => `
+    <div class="win-bar">
+      <span>${esc(b.label)}</span>
+      <span class="win-bar-track" aria-hidden="true"><i style="width:${b.score}%"></i></span>
+      <b>${b.score}</b>
+    </div>`).join('');
+  const deductions = w.adjustments.map((a) => `<li>${esc(a.reason)}: ${a.points} points</li>`).join('');
+  return `
+    <article class="win-card ${CATEGORY_CLASS[w.category.id]}">
+      <button type="button" class="win-main" data-window="${i}" aria-pressed="${!!selected}"
+              aria-label="${esc(`Show ${windowDayLabel(w.start)} ${fmtTime(w.start)} to ${fmtTime(w.end)} on the timeline. Score ${w.score} out of 100, ${w.category.label}.`)}">
+        <span class="win-top">
+          <span class="win-when">
+            <b>${esc(windowDayLabel(w.start))}</b>
+            <span>${esc(fmtTime(w.start))} – ${esc(fmtTime(w.end))}</span>
+          </span>
+          ${iconImg(w.weather, 'win-icon')}
+        </span>
+        <span class="win-score"><b>${w.score}</b><small>/100</small><span class="win-badge">${esc(w.category.label)}</span></span>
+        <span class="win-metrics">
+          <span>${units.deg(w.temp)}</span>
+          <span>${Math.round(w.pop * 100)}% rain</span>
+          <span>${units.wind(w.wind)} ${units.windUnit()} wind</span>
+        </span>
+        <span class="win-reason">${esc(w.reasons.join('. '))}.</span>
+      </button>
+      <details class="win-details">
+        <summary>Why this score</summary>
+        <div class="win-breakdown">${breakdown}</div>
+        ${deductions ? `<ul class="win-deductions">${deductions}</ul>` : ''}
+        ${extras.length ? `<p class="win-extra">${esc(extras.join(' · '))}</p>` : ''}
+        ${w.missing.length ? `<p class="win-extra">Not in this forecast, so not scored: ${esc(w.missing.join(', '))}.</p>` : ''}
+      </details>
+    </article>`;
+}
+
+function renderWindows() {
+  const box = $('window-results');
+  document.querySelectorAll('[data-activity]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.activity === state.activity)));
+  if (!state.points.length) return;
+  state.windows = SkyInsights.findWeatherWindows(state.activity, state.points, { now: nowSec(), tz: tzOffset(), horizonHours: 48 });
+  if (state.selectedWindow && !state.windows.some((w) => w.start === state.selectedWindow.start)) {
+    state.selectedWindow = null;
+    updateTimelineWindow();
+  }
+  const note = $('window-note');
+  if (!state.windows.length) {
+    box.innerHTML = '<p class="empty-state">The saved forecast has no complete 3-hour period left to rank. Reconnect to load a new forecast.</p>';
+    note.hidden = true;
+    return;
+  }
+  box.innerHTML = state.windows.map(windowCard).join('');
+  const allPoor = state.windows.every((w) => w.category.id === 'poor');
+  note.hidden = !allPoor;
+  if (allPoor) note.textContent = `No period looks good for ${SkyInsights.ACTIVITIES[state.activity].label.toLowerCase()} in the available forecast. These are the least unfavorable.`;
+}
+
+$('activity-tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-activity]');
+  if (!tab || tab.dataset.activity === state.activity) return;
+  state.activity = tab.dataset.activity;
+  store.set('activity', state.activity);
+  state.selectedWindow = null;
+  updateTimelineWindow();
+  renderWindows();
+});
+
+$('window-results').addEventListener('click', (e) => {
+  const main = e.target.closest('[data-window]');
+  if (!main) return;
+  const w = state.windows[+main.dataset.window];
+  if (!w) return;
+  state.selectedWindow = { start: w.start, end: w.end };
+  document.querySelectorAll('[data-window]').forEach((b) => b.setAttribute('aria-pressed', String(b === main)));
+  updateTimelineWindow();
+  goToMoment(w.start);
+  document.querySelector('.timeline').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+});
+
+/* ==========================================================================
+   Personal briefing (rules live in insights.js)
+   ========================================================================== */
+const SEVERITY_LABEL = { high: 'Important', medium: 'Worth noting', low: 'Good to know' };
+
+function currentAqi() {
+  const entry = state.air && state.air.list && state.air.list[0];
+  const value = entry ? usAqi(entry.components.pm2_5) : null;
+  if (value === null) return null;
+  return { value, label: AQI_LEVELS.find((l) => value <= l.max).label, pm25: entry.components.pm2_5 };
+}
+
+function buildBriefing() {
+  return SkyInsights.generatePersonalBriefing({
+    current: state.points[0],
+    forecast: state.points,
+    aqi: currentAqi(),
+    uv: state.uvi,
+    now: nowSec(),
+    format: {
+      temp: (c) => units.deg(c),
+      wind: (ms) => `${units.wind(ms)} ${units.windUnit()}`,
+      rain: (mm) => units.rain(mm),
+      time: (dt) => fmtTime(dt)
+    }
+  });
+}
+
+function renderBriefing() {
+  if (!state.points.length) return;
+  const { insights, unavailable } = buildBriefing();
+  $('briefing-list').innerHTML = insights.map((i) => `
+    <article class="brief-card sev-${i.severity}">
+      <header class="brief-head">
+        <span class="brief-icon"><svg class="icon" aria-hidden="true"><use href="#${i.icon}"/></svg></span>
+        <span class="brief-category">${esc(i.category)}</span>
+        <span class="brief-sev">${SEVERITY_LABEL[i.severity]}</span>
+      </header>
+      <h3 class="brief-title">${esc(i.title)}</h3>
+      <p class="brief-text">${esc(i.explanation)}</p>
+      <p class="brief-action">${esc(i.action)}</p>
+    </article>`).join('');
+
+  const pending = [];
+  const missing = [];
+  for (const name of unavailable) {
+    const loading = (name === 'Air Quality' && state.airStatus === 'loading') || (name === 'Sun Protection' && state.uvStatus === 'loading');
+    (loading ? pending : missing).push(name);
+  }
+  const notes = [];
+  if (pending.length) notes.push(`Loading ${pending.join(' and ')}.`);
+  if (missing.length) notes.push(`${missing.join(' and ')} data isn't available right now, so it's left out.`);
+  const note = $('briefing-note');
+  note.textContent = notes.join(' ');
+  note.hidden = !notes.length;
+}
+
+// Forecast coverage varies by location, so labels follow what was actually returned
+const coverageDays = () => state.daily.length;
+const coverageLabel = () => (coverageDays() === 1 ? '1 day' : `${coverageDays()} days`);
+
+function renderCoverageLabels() {
+  const setLabel = (id, text) => {
+    const heading = $(id);
+    heading.lastChild.textContent = text;
+  };
+  setLabel('daily-title', `${coverageDays()}-day forecast`);
+  setLabel('timeline-title', `Next ${coverageLabel()}`);
+  document.querySelector('[data-chart-view="5d"]').textContent = coverageLabel();
+}
+
+function renderInsightsUnavailable() {
+  const message = '<p class="empty-state">Weather data couldn\'t be loaded, so there\'s nothing to analyze yet. Use "Try again" above, or search for a city.</p>';
+  $('window-results').innerHTML = message;
+  $('briefing-list').innerHTML = message;
+  $('analytics-fallback').hidden = false;
+  $('analytics-fallback').textContent = 'The chart will appear once weather data loads.';
+}
+
+function renderFreshness() {
+  const fresh = SkyInsights.describeFreshness(state.forecastFetchedAt, Date.now());
+  const place = (state.place && state.place.name) || (state.current && state.current.name) || '';
+  document.querySelectorAll('[data-freshness]').forEach((node) => {
+    node.textContent = fresh.label;
+    node.classList.toggle('is-stale', fresh.stale);
+  });
+  $('briefing-place').textContent = place ? `For ${place}, based on current conditions and the next 24 hours.` : '';
+  const banner = $('stale-banner');
+  banner.hidden = !fresh.stale;
+  if (fresh.stale) $('stale-text').textContent = `${fresh.label}. It will update when the connection returns.`;
+}
+
+/* ==========================================================================
+   Forecast analytics (supplementary Chart.js view; the SVG timeline stays primary)
+   ========================================================================== */
+let analyticsChart = null;
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const numOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+function analyticsConfig(view, palette, { animate = true, showWind = false, responsive = true, onPick = null } = {}) {
+  const horizon = state.points[0].dt + 24 * 3600;
+  const pts = view === '24h' ? state.points.filter((p) => p.dt <= horizon) : state.points;
+  const isMidday = pts.map((p) => { const h = cityDate(p.dt).getUTCHours(); return h >= 11 && h <= 13; });
+  return {
+    data: {
+      labels: pts.map((p, i) => (i === 0 ? 'Now' : `${fmtDay(p.dt)} ${fmtHour(p.dt)}`)),
+      datasets: [
+        {
+          type: 'line',
+          label: `Temperature (°${state.units === 'metric' ? 'C' : 'F'})`,
+          data: pts.map((p) => numOrNull(units.temp(p.temp))),
+          yAxisID: 'yTemp',
+          borderColor: palette.temp,
+          backgroundColor: palette.temp,
+          borderWidth: 2.5,
+          tension: 0.35,
+          pointRadius: view === '24h' ? 3 : 0,
+          pointHoverRadius: 5,
+          spanGaps: false,
+          order: 1
+        },
+        {
+          type: 'bar',
+          label: 'Precipitation chance (%)',
+          data: pts.map((p) => (isNum(p.pop) ? Math.round(p.pop * 100) : null)),
+          yAxisID: 'yRain',
+          backgroundColor: palette.rain,
+          borderRadius: 3,
+          order: 3
+        },
+        {
+          type: 'line',
+          label: `Wind (${units.windUnit()})`,
+          data: pts.map((p) => numOrNull(units.wind(p.wind))),
+          yAxisID: 'yWind',
+          borderColor: palette.wind,
+          backgroundColor: palette.wind,
+          borderWidth: 2,
+          borderDash: [5, 4],
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          spanGaps: false,
+          hidden: !showWind,
+          order: 2
+        }
+      ]
+    },
+    options: {
+      responsive,
+      maintainAspectRatio: false,
+      animation: animate ? { duration: 400 } : false,
+      interaction: { mode: 'index', intersect: false },
+      onClick: onPick ? (evt, items) => { if (items.length) onPick(pts[items[0].index].dt); } : undefined,
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: { color: palette.text, boxWidth: 12, boxHeight: 12, font: { family: 'Inter', size: 12 } }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, .94)',
+          titleColor: '#f1f5f9',
+          bodyColor: '#cbd5e1',
+          padding: 10,
+          cornerRadius: 10,
+          callbacks: {
+            title: (items) => { const p = pts[items[0].dataIndex]; return `${fmtDay(p.dt, { weekday: 'long' })}, ${fmtTime(p.dt)}`; }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            color: palette.text,
+            font: { family: 'Inter', size: 12 },
+            autoSkip: false,
+            maxRotation: 0,
+            callback: (v, i) => {
+              if (view === '24h') return i === 0 ? 'Now' : fmtHour(pts[i].dt);
+              return isMidday[i] ? fmtDay(pts[i].dt) : '';
+            }
+          }
+        },
+        yTemp: {
+          position: 'left',
+          grid: { color: palette.grid },
+          border: { display: false },
+          grace: '10%',
+          title: { display: true, text: `°${state.units === 'metric' ? 'C' : 'F'}`, color: palette.text },
+          ticks: { color: palette.text, maxTicksLimit: 6, font: { family: 'Inter', size: 12 } }
+        },
+        yRain: {
+          position: 'right',
+          min: 0,
+          max: 100,
+          grid: { display: false },
+          border: { display: false },
+          title: { display: true, text: 'Precip. %', color: palette.text },
+          ticks: { color: palette.text, stepSize: 25, font: { family: 'Inter', size: 12 } }
+        },
+        yWind: {
+          display: 'auto',
+          position: 'right',
+          min: 0,
+          grid: { display: false },
+          border: { display: false },
+          title: { display: true, text: units.windUnit(), color: palette.text },
+          ticks: { color: palette.text, maxTicksLimit: 6, font: { family: 'Inter', size: 12 } }
+        }
+      }
+    }
+  };
+}
+
+function renderAnalytics() {
+  const fallback = $('analytics-fallback');
+  const wrap = $('analytics-wrap');
+  document.querySelectorAll('[data-chart-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.chartView === state.chartView)));
+  if (typeof Chart === 'undefined') {
+    wrap.hidden = true;
+    fallback.hidden = false;
+    fallback.textContent = "The chart couldn't load. The timeline above shows the same forecast.";
+    return;
+  }
+  if (!state.points.length) return;
+  wrap.hidden = false;
+  fallback.hidden = true;
+  const showWind = analyticsChart ? analyticsChart.isDatasetVisible(2) : false;
+  if (analyticsChart) analyticsChart.destroy();
+  const palette = { temp: cssVar('--curve'), rain: cssVar('--rain-bar'), wind: cssVar('--accent'), text: cssVar('--text-3'), grid: cssVar('--border') };
+  analyticsChart = new Chart($('analytics-chart'), analyticsConfig(state.chartView, palette, {
+    showWind,
+    onPick: (dt) => {
+      goToMoment(dt);
+      document.querySelector('.timeline').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+    }
+  }));
+  $('analytics-chart').setAttribute('aria-label', `Temperature, rain chance and wind for the ${state.chartView === '24h' ? 'next 24 hours' : `next ${coverageLabel()}`} in ${(state.place && state.place.name) || state.current.name}. Use the timeline above for the same data by keyboard.`);
+}
+
+document.querySelectorAll('[data-chart-view]').forEach((b) => b.addEventListener('click', () => {
+  state.chartView = b.dataset.chartView;
+  renderAnalytics();
+}));
+
+/* ==========================================================================
    Favorites & history
    ========================================================================== */
 // Older versions stored plain city-name strings; normalise them
@@ -1535,6 +1953,7 @@ el.themeToggle.addEventListener('click', () => {
   document.documentElement.dataset.theme = next;
   store.set('theme', next);
   applyThemeLabel();
+  if (state.current) renderAnalytics();
 });
 
 // Transparent over the sky at the top of the page, solid as soon as content scrolls beneath it
@@ -1587,18 +2006,38 @@ document.addEventListener('visibilitychange', () => {
 /* ==========================================================================
    PDF report
    ========================================================================== */
-el.pdfBtn.addEventListener('click', async () => {
-  if (!state.current) return;
-  if (typeof html2pdf === 'undefined') {
-    toast('The PDF tool is still loading. Try again in a moment.');
-    return;
-  }
+// Light-background version of the analytics chart, drawn off-screen for the report
+function reportChartImage() {
+  if (typeof Chart === 'undefined' || !state.points.length) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 688;
+  canvas.height = 260;
+  canvas.style.cssText = 'width:688px;height:260px';
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:688px;height:260px';
+  holder.appendChild(canvas);
+  document.body.appendChild(holder);
+  const palette = { temp: '#c2410c', rain: 'rgba(11, 111, 214, .3)', wind: '#0b6fd6', text: '#475569', grid: '#e2e8f0' };
+  const config = analyticsConfig('5d', palette, { animate: false, responsive: false });
+  config.options.devicePixelRatio = 2;
+  const chart = new Chart(canvas, config);
+  const image = canvas.toDataURL('image/png');
+  chart.destroy();
+  holder.remove();
+  return image;
+}
+
+function buildReportHtml() {
   const cur = state.current;
   const name = (state.place && state.place.name) || cur.name;
   const now = nowSec();
-  const aqiEntry = state.air && state.air.list && state.air.list[0];
-  const aqi = aqiEntry ? usAqi(aqiEntry.components.pm2_5) : null;
+  const aqi = currentAqi();
   const p0 = state.points[0];
+  const activityLabel = SkyInsights.ACTIVITIES[state.activity].label;
+  const fresh = SkyInsights.describeFreshness(state.forecastFetchedAt, Date.now());
+  const { insights } = buildBriefing();
+  const windows = SkyInsights.findWeatherWindows(state.activity, state.points, { now, tz: tzOffset(), horizonHours: 48 });
+  const chartImage = reportChartImage();
 
   const rows = [
     ['Feels like', units.deg(cur.main.feels_like)],
@@ -1607,20 +2046,18 @@ el.pdfBtn.addEventListener('click', async () => {
     ['Pressure', `${units.pressure(cur.main.pressure)} ${units.pressureUnit()}`],
     ['Visibility', units.distance(cur.visibility)],
     ['UV index', isNum(state.uvi) ? Math.round(state.uvi) : 'Unavailable'],
-    ['Air quality (US AQI)', aqi ?? 'Unavailable'],
+    ['Air quality (US AQI)', aqi ? `${aqi.value} (${aqi.label})` : 'Unavailable'],
     ['Sunrise / sunset', `${fmtTime(cur.sys.sunrise)} / ${fmtTime(cur.sys.sunset)}`]
   ];
 
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:fixed;left:-10000px;top:0';
-  wrap.innerHTML = `
+  return `
     <div class="pdf-report">
       <header>
         <div>
           <h1>${esc(name)}, ${esc(countryName(cur.sys.country))}</h1>
           <div class="pdf-muted">${esc(fmtDay(now, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))} · ${esc(fmtTime(now))} local time</div>
         </div>
-        <div class="pdf-muted">SkyPulse weather report</div>
+        <div class="pdf-muted">SkyPulse weather report<br>${esc(fresh.label)}</div>
       </header>
       <div class="pdf-now">
         <div>
@@ -1629,33 +2066,85 @@ el.pdfBtn.addEventListener('click', async () => {
         </div>
         <div class="pdf-muted" style="max-width:340px;text-align:right">${esc(buildSummary(p0.dt, p0, true))}</div>
       </div>
-      <h2>Current conditions</h2>
-      <table><tbody>${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
-      <h2>5-day forecast</h2>
-      <table>
-        <thead><tr><th>Day</th><th>Conditions</th><th>Low</th><th>High</th><th>Rain chance</th></tr></thead>
-        <tbody>${state.daily.map((d, i) => `
-          <tr>
-            <td>${esc(i === 0 ? 'Today' : fmtDay(d.dt, { weekday: 'long' }))}</td>
-            <td style="text-transform:capitalize">${esc(d.weather ? d.weather.description : '')}</td>
-            <td>${units.deg(d.min)}</td>
-            <td>${units.deg(d.max)}</td>
-            <td>${Math.round(d.pop * 100)}%</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      <footer>Data: OpenWeatherMap. Generated ${esc(new Date().toLocaleString())}.</footer>
+      <section class="pdf-block">
+        <h2>Current conditions</h2>
+        <table><tbody>${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
+      </section>
+      ${insights.length ? `
+      <section class="pdf-block">
+        <h2>Your personal weather briefing</h2>
+        <div class="pdf-insights">${insights.map((i) => `
+          <div class="pdf-insight">
+            <div class="pdf-insight-cat">${esc(i.category)} · ${SEVERITY_LABEL[i.severity]}</div>
+            <b>${esc(i.title)}</b>
+            <p>${esc(i.explanation)} ${esc(i.action)}</p>
+          </div>`).join('')}
+        </div>
+      </section>` : ''}
+      ${windows.length ? `
+      <section class="pdf-block">
+        <h2>Best weather windows for ${esc(activityLabel.toLowerCase())}</h2>
+        <table>
+          <thead><tr><th>When</th><th>Score</th><th>Temp</th><th>Rain</th><th>Wind</th><th>Why</th></tr></thead>
+          <tbody>${windows.map((w) => `
+            <tr>
+              <td style="white-space:nowrap">${esc(windowDayLabel(w.start))}<br>${esc(fmtTime(w.start))} – ${esc(fmtTime(w.end))}</td>
+              <td style="white-space:nowrap"><b>${w.score}/100</b><br>${esc(w.category.label)}</td>
+              <td>${units.deg(w.temp)}</td>
+              <td>${Math.round(w.pop * 100)}%</td>
+              <td style="white-space:nowrap">${units.wind(w.wind)} ${units.windUnit()}</td>
+              <td>${esc(w.reasons.join('. '))}.</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </section>` : ''}
+      <section class="pdf-block">
+        <h2>${coverageDays()}-day forecast</h2>
+        <table>
+          <thead><tr><th>Day</th><th>Conditions</th><th>Low</th><th>High</th><th>Rain chance</th></tr></thead>
+          <tbody>${state.daily.map((d, i) => `
+            <tr>
+              <td>${esc(i === 0 ? 'Today' : fmtDay(d.dt, { weekday: 'long' }))}</td>
+              <td style="text-transform:capitalize">${esc(d.weather ? d.weather.description : '')}</td>
+              <td>${units.deg(d.min)}</td>
+              <td>${units.deg(d.max)}</td>
+              <td>${Math.round(d.pop * 100)}%</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </section>
+      ${chartImage ? `
+      <section class="pdf-block">
+        <h2>Forecast analytics</h2>
+        <img class="pdf-chart" src="${chartImage}" alt="Temperature and rain chance for the next ${coverageLabel()}" />
+      </section>` : ''}
+      <footer>Data: OpenWeatherMap. Scores and briefing are rule-based guidance, not safety advice. Generated ${esc(new Date().toLocaleString())}.</footer>
     </div>`;
+}
+
+const pdfOptions = (name) => ({
+  margin: 8,
+  filename: `SkyPulse_${name.replace(/[^\w-]+/g, '_')}.pdf`,
+  image: { type: 'jpeg', quality: 0.96 },
+  html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  pagebreak: { mode: ['css', 'legacy'], avoid: ['.pdf-block'] }
+});
+
+el.pdfBtn.addEventListener('click', async () => {
+  if (!state.current) return;
+  if (typeof html2pdf === 'undefined') {
+    toast('The PDF tool is still loading. Try again in a moment.');
+    return;
+  }
+  const name = (state.place && state.place.name) || state.current.name;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-10000px;top:0';
+  wrap.innerHTML = buildReportHtml();
   document.body.appendChild(wrap);
   el.pdfBtn.disabled = true;
   try {
-    await html2pdf().set({
-      margin: 8,
-      filename: `SkyPulse_${name.replace(/[^\w-]+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.96 },
-      html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(wrap.firstElementChild).save();
+    await html2pdf().set(pdfOptions(name)).from(wrap.firstElementChild).save();
     toast('Report downloaded');
   } catch (e) {
     toast("Couldn't create the PDF. Try again.");
@@ -1685,6 +2174,8 @@ if ('IntersectionObserver' in window) {
 setInterval(() => {
   if (!state.current) return;
   renderSunTile();
+  renderFreshness();
+  if (state.windows.some((w) => w.start < nowSec())) renderWindows();
   if (state.moment <= state.points[0].dt + NOW_WINDOW) renderMoment();
 }, 60000);
 
@@ -1696,6 +2187,9 @@ function registerServiceWorker() {
 
 function init() {
   state.units = store.get('units') === 'imperial' ? 'imperial' : 'metric';
+  const savedActivity = store.get('activity');
+  if (SkyInsights.ACTIVITIES[savedActivity]) state.activity = savedActivity;
+  document.querySelectorAll('[data-activity]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.activity === state.activity)));
   document.querySelectorAll('[data-units]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.units === state.units)));
   applyThemeLabel();
   updateOnline();

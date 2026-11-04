@@ -25,8 +25,12 @@ jobs:
       - name: Syntax Check JavaScript
         run: |
           node --check script.js
+          node --check insights.js
           node --check service-worker.js
           node --check api/weather.js
+
+      - name: Run Insight Engine Tests
+        run: node --test test/insights.test.js
 
       - name: Verify Core Assets & Manifest
         run: |
