@@ -717,7 +717,8 @@ function renderSky(t, p) {
 /* ==========================================================================
    Timeline
    ========================================================================== */
-const TL = { height: 192, iconY: 28, curveTop: 90, curveBottom: 136, barBase: 162, barMax: 20 };
+// The curve ends above y=128, where the tallest rain-chance label starts, so they can't collide
+const TL = { height: 192, iconY: 28, curveTop: 82, curveBottom: 120, barBase: 162, barMax: 20 };
 let tlGeom = null;   // { t0, t1, width, x(t), y(temp) }
 let tlFrame = 0;
 
@@ -2227,7 +2228,7 @@ const pdfOptions = (name) => ({
   margin: 8,
   filename: `SkyPulse_${name.replace(/[^\w-]+/g, '_')}.pdf`,
   image: { type: 'jpeg', quality: 0.96 },
-  html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0 },
+  html2canvas: { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0, logging: false },
   jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
   pagebreak: { mode: [] }
 });

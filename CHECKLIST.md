@@ -2,7 +2,7 @@
 
 Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insights**. An item is only checked if it was verified. "Tested" means the automated tests in `test/`; "browser" means checked in a browser on a local server, running the same code against live forecast data.
 
-**Hosted deployments:** the Vercel preview is behind Vercel sign-in, so it has not been independently browser-tested. Vercel reports its builds as successful.
+**Hosted deployments:** weather loading, search, all four activities, timeline sync, PDF download, unit switching, saved places, comparison, map tiles and console and network errors were also checked on the signed-in Vercel preview. Production only gets these features after merging.
 
 ---
 
