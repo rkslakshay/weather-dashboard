@@ -5,6 +5,8 @@ SkyPulse turns a raw forecast into decisions: when to go out, what to wear and w
 [![PWA Ready](https://img.shields.io/badge/PWA-Enabled-blue)](manifest.json)
 [![CI Pipeline](https://img.shields.io/badge/CI-Automated-success)](.github/workflows/ci-deploy.yml)
 
+**Live app:** https://weather-dashboard-five-pearl.vercel.app
+
 *Feature status is tracked in [CHECKLIST.md](CHECKLIST.md).*
 
 ---
@@ -20,7 +22,7 @@ Pick an activity and SkyPulse ranks the best non-overlapping 3-hour periods up t
 | Cycling | 14–22°C | 15 km/h | 10% | Extra penalty for gusts above 30 km/h |
 | Outdoor dining | 20–26°C | 12 km/h | 5% | Lunch 12–2 PM and dinner 7–10 PM |
 
-These are configurable preferences in `ACTIVITIES` (`insights.js`), not safety thresholds.
+These are heuristic preferences, configurable in `ACTIVITIES` (`insights.js`). They and the limits below are not official health or safety standards.
 
 **How scoring works.** The calculation is deterministic and involves no AI model:
 
@@ -84,23 +86,30 @@ Sections with no data are left out and named as unavailable. The briefing update
 
 There is no build step and no npm dependencies. Other libraries: Leaflet and html2pdf.js (pinned CDN versions). Data: OpenWeatherMap current weather, 5-day/3-hour forecast, air pollution and forecast, UV, geocoding and map tiles.
 
-**Configuration:** set `OPENWEATHER_API_KEY` as a server-side environment variable. Never put a key in committed code.
+**Environment variables:**
+
+| Name | Where | Purpose |
+|---|---|---|
+| `OPENWEATHER_API_KEY` | Vercel project settings (enable it for Production and Preview), or `.env` locally | OpenWeatherMap key, used only on the server by `api/weather.js` |
+
+`config.js` is an optional, git-ignored local fallback that the page only requests on `localhost`. Never put a key in committed code.
+
+**Offline behavior:** after a first online visit, the app shell and the last loaded data work offline, labelled with their age. Searching for a place you haven't loaded still needs a connection. Live map tiles aren't cached.
 
 ---
 
 ## 🚀 Deployment Guide
 
-### Option 1: Deploy to Vercel (Recommended — Full API Key Protection)
+### Deploy to Vercel
 1. Fork or push this repository to GitHub.
 2. Import the project into [Vercel](https://vercel.com).
 3. Under **Project Settings $\rightarrow$ Environment Variables**, add:
    - `OPENWEATHER_API_KEY`: Your OpenWeatherMap API key.
 4. Click **Deploy**. Vercel will automatically serve the static assets and the secure serverless proxy at `/api/weather`.
 
-### Option 2: Deploy to Netlify
-1. Connect your repository to [Netlify](https://www.netlify.com).
-2. Set build directory to `.` (root).
-3. Add environment variable `OPENWEATHER_API_KEY` in Netlify dashboard.
+The `/api/weather` route relies on Vercel's `api/` directory. Other static hosts won't run it, so the app would have no weather data there without additional porting.
+
+If you deploy to your own domain, update `ALLOWED_ORIGIN` in `api/weather.js`. Same-origin requests work regardless; it only controls cross-site browser access.
 
 ---
 
@@ -130,10 +139,10 @@ There is no build step and no npm dependencies. Other libraries: Leaflet and htm
 ## 🧪 Testing
 
 ```bash
-node --test test/insights.test.js
+node --test test/*.test.js
 ```
 
-The tests run in CI, alongside syntax checks, on every push.
+These cover the scoring and briefing engines and the API proxy. They run in GitHub Actions, alongside syntax checks, on pushes to `main` and `redesign/**` and on pull requests into `main`. There is no build step or linter. Browser behavior is checked manually; see [CHECKLIST.md](CHECKLIST.md).
 
 ---
 

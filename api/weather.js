@@ -1,7 +1,7 @@
 /**
  * Serverless API Proxy for OpenWeatherMap
  * Keeps API keys secure on the server side and provides caching headers.
- * Compatible with Vercel, Netlify, and standard Node.js serverless runtimes.
+ * Written for Vercel's api/ directory; dev-server.js runs the same handler locally.
  */
 
 const ALLOWED_ENDPOINTS = {
@@ -52,7 +52,8 @@ module.exports = async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const endpointKey = url.searchParams.get('endpoint') || 'weather';
-    const targetBaseUrl = ALLOWED_ENDPOINTS[endpointKey];
+    // Own properties only, so names like "constructor" are rejected as unknown endpoints
+    const targetBaseUrl = Object.prototype.hasOwnProperty.call(ALLOWED_ENDPOINTS, endpointKey) ? ALLOWED_ENDPOINTS[endpointKey] : null;
 
     if (!targetBaseUrl && endpointKey !== 'tile') {
       res.statusCode = 400;

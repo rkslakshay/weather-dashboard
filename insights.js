@@ -309,8 +309,7 @@
     if (conditions.some((c) => AIRBORNE_PARTICLES.includes(c))) adjustments.push({ points: -15, reason: 'Smoke, dust or ash in the air' });
 
     const quiet = overlapHours(start, hours, tz, QUIET_START, 24) + overlapHours(start, hours, tz, 0, QUIET_END);
-    const quietFor = profile.mealSlots ? quiet - overlapHours(start, hours, tz, 22, 22) : quiet;
-    if (quietFor > 0) adjustments.push({ points: -Math.round(35 * (quietFor / hours)), reason: 'Late-night or very early hours' });
+    if (quiet > 0) adjustments.push({ points: -Math.round(35 * (quiet / hours)), reason: 'Late-night or very early hours' });
 
     // Air quality uses the worst hour in the window, on the API's 1-5 scale
     const airValues = samples.map((s) => s.aqi);

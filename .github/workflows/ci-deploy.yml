@@ -29,8 +29,8 @@ jobs:
           node --check service-worker.js
           node --check api/weather.js
 
-      - name: Run Insight Engine Tests
-        run: node --test test/insights.test.js
+      - name: Run Tests
+        run: node --test test/*.test.js
 
       - name: Verify Core Assets & Manifest
         run: |

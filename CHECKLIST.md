@@ -1,6 +1,8 @@
 # SkyPulse — Feature Checklist
 
-Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insights**. An item is only checked if it was verified. "Tested" means the automated tests in `test/insights.test.js`; "browser" means checked in a browser against live forecast data.
+Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insights**. An item is only checked if it was verified. "Tested" means the automated tests in `test/`; "browser" means checked in a browser on a local server, running the same code against live forecast data.
+
+**Hosted deployments:** the Vercel preview is behind Vercel sign-in, so it has not been independently browser-tested. Vercel reports its builds as successful.
 
 ---
 
@@ -14,12 +16,13 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 - [x] Metric internally, with display units applied only for presentation (tested, browser)
 - [x] City-local dates, half-hour time zones and midnight boundaries (tested)
 - [x] Activity tabs, ranked cards, categories, icons and expandable reasoning (browser)
-- [x] No-data and all-poor states, and forecast freshness (browser)
-- [ ] Loading and first-load error states: implemented, but only reviewed in code, not exercised in a browser
+- [x] No-data, all-poor and first-load error states, and forecast freshness (browser)
+- [ ] Loading skeletons while requests are in flight: seen on the failed-load screen; not timed on a slow connection
 - [x] Selecting a window moves the existing timeline and highlights the period (browser)
 - [x] Air quality in scoring, using the API's 1-5 index with activity-specific limits and warnings (tested, browser)
 - [x] Missing air quality is not treated as good, and rules out Optimal (tested)
-- [x] Hard limits for storms, extreme heat and cold, very strong wind and heavy rain (tested)
+- [x] Hard limits for storms, extreme heat and cold, very strong wind and heavy rain (tested, browser with simulated conditions)
+- [ ] A real thunderstorm in live data: scoring and the sky are tested with simulated conditions only
 - [x] Hourly estimates are labelled separately from API readings in the timeline, cards, chart and PDF (tested, browser)
 
 ## Personal Weather Briefing
@@ -38,24 +41,27 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 - [x] Conditions, briefing, top windows, forecast table and chart for the selected city and units (browser, generated through html2pdf and inspected)
 - [x] Fits A4 width, and each section stays whole on an explicit page, because html2pdf's page-break plugin cut off the chart on long reports (browser, verified in the saved file)
 - [x] Fixed: reports came out blank when the page was scrolled (browser)
+- [x] Fixed: export froze if the page wasn't painting, as in a background tab (browser)
 - [x] Saved PDF bytes from the real export button parsed and rendered with pdf.js, not just the HTML (browser)
 - [ ] Opened in a desktop PDF viewer such as Acrobat: not checked
 - [ ] Selectable text: not available, because html2pdf embeds each page as an image
 
 ## PWA & Offline
 - [x] New files precached; app shell loads with the server stopped (browser)
-- [x] Saved forecast is used when the network fails, labelled with its age (browser)
+- [x] Saved forecast is used when the network fails, labelled with its age (browser, simulated by stopping the server and removing the local key)
 - [x] API responses stay network-first; map tiles are not cached (code review)
 - [ ] Installed-app behavior on a real phone: not checked
 
 ## Existing Features
 - [x] Live conditions, forecast, SVG timeline and sky scene (browser)
 - [x] Search, autocomplete, favorites and city comparison (browser)
-- [x] Weather map renders; layer toggle state updates (browser)
+- [x] Weather map renders; all four layers return image tiles through the proxy (browser)
+- [x] Polar day and night: no invented sunrise, and the sky follows the API's day/night flag (browser)
 - [x] °C/°F, and light and dark themes including the chart redraw (browser)
-- [x] API key kept server-side through `api/weather.js` (code review)
-- [x] No horizontal overflow at 375px; layout checked at 1280px (browser)
-- [ ] Geolocation button: needs a permission prompt, not exercised
+- [x] API key kept server-side through `api/weather.js`; can't be overridden and isn't returned (tested, code review)
+- [x] No horizontal overflow at 375px and 768px; layout checked at 1280px (browser)
+- [x] Location button: denial, timeout and success handling, using a simulated browser location (browser)
+- [ ] Location button with a real browser permission prompt: not checked
 - [ ] Touch swiping on a real phone: not checked
 
 ## Removed Earlier

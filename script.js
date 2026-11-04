@@ -361,6 +361,10 @@ function describeError(err, place) {
   if (err.status === 401) return 'The weather service rejected the API key.';
   if (err.status === 429) return 'Too many requests. Wait a minute and try again.';
   if (err.status >= 500) return 'The weather service is having trouble. Try again shortly.';
+  if (!(err instanceof ApiError)) {
+    console.error(err); // A bug on our side: keep the detail for debugging, not for the banner
+    return 'Something went wrong while loading the weather.';
+  }
   return err.message || 'Something went wrong while loading the weather.';
 }
 
@@ -641,9 +645,13 @@ const mixHex = (a, b, f) => { const x = hexRgb(a), y = hexRgb(b); return rgbHex(
 const mixSet = (a, b, f) => a.map((c, i) => mixHex(c, b[i], f));
 
 // Sun elevation proxy in [-1, 1] plus progress through the current day or night
-function sunState(t) {
+function sunState(t, weather) {
   const { sunrise, sunset } = state.current.sys;
-  if (!sunrise || !sunset) return { e: 0.5, p: 0.5, day: true };
+  // Polar day or night: the API reports no sunrise, so use its day/night icon flag
+  if (!sunrise || !sunset) {
+    const night = weather && weather.icon && weather.icon.endsWith('n');
+    return night ? { e: -0.7, p: 0.5, day: false } : { e: 0.5, p: 0.5, day: true };
+  }
   const k = Math.round((t - (sunrise + sunset) / 2) / 86400);
   const sr = sunrise + k * 86400;
   const ss = sunset + k * 86400;
@@ -666,7 +674,7 @@ function skyColors(e) {
 }
 
 function renderSky(t, p) {
-  const { e, p: progress, day } = sunState(t);
+  const { e, p: progress, day } = sunState(t, p.weather);
   const main = p.weather.main;
   const storm = main === 'Thunderstorm';
   const wet = ['Rain', 'Drizzle', 'Thunderstorm'].includes(main);
@@ -2099,11 +2107,11 @@ function buildReportHtml() {
     ['Humidity', `${cur.main.humidity}%`],
     ['Wind', `${units.wind(cur.wind.speed)} ${units.windUnit()}${isNum(cur.wind.deg) ? ` from ${cardinal(cur.wind.deg)}` : ''}`],
     ['Pressure', `${units.pressure(cur.main.pressure)} ${units.pressureUnit()}`],
-    ['Visibility', units.distance(cur.visibility)],
+    ['Visibility', isNum(cur.visibility) ? units.distance(cur.visibility) : 'Not reported'],
     ['UV index', isNum(state.uvi) ? Math.round(state.uvi) : 'Unavailable'],
     ['Air quality (US AQI from PM2.5)', aqi ? `${aqi.value} (${aqi.label})` : 'Unavailable'],
     ['Air quality (OpenWeatherMap index)', SkyInsights.AIR_LABELS[apiAirIndex] ? `${apiAirIndex} of 5 (${SkyInsights.AIR_LABELS[apiAirIndex]})` : 'Unavailable'],
-    ['Sunrise / sunset', `${fmtTime(cur.sys.sunrise)} / ${fmtTime(cur.sys.sunset)}`]
+    ['Sunrise / sunset', cur.sys.sunrise && cur.sys.sunset ? `${fmtTime(cur.sys.sunrise)} / ${fmtTime(cur.sys.sunset)}` : 'Polar day or night']
   ];
 
   return `
@@ -2154,7 +2162,7 @@ function buildReportHtml() {
             </tr>`).join('')}
           </tbody>
         </table>
-        <p class="pdf-note">Window scores use hourly values estimated between the API's 3-hour forecast readings. Air uses OpenWeatherMap's hourly 1-5 index, taking the worst hour in the window.</p>
+        <p class="pdf-note">Window scores use hourly values estimated between the API's 3-hour forecast readings. Air here uses OpenWeatherMap's hourly 1-5 index (worst hour in the window), which is a different scale from the US AQI above. Scores are heuristic recommendations, not official health or safety standards.</p>
       </section>` : ''}
       <section class="pdf-block">
         <h2>${coverageDays()}-day forecast (from API readings)</h2>
@@ -2176,7 +2184,7 @@ function buildReportHtml() {
         <h2>Forecast analytics (API readings every 3 hours)</h2>
         <img class="pdf-chart" src="${chartImage}" alt="Temperature and rain chance for the next ${coverageLabel()}" />
       </section>` : ''}
-      <footer>Data: OpenWeatherMap. Scores and briefing are rule-based guidance, not safety advice. Generated ${esc(new Date().toLocaleString())}.</footer>
+      <footer>Data: OpenWeatherMap. Scores and briefing are heuristic, rule-based guidance, not official health or safety standards. Generated ${esc(new Date().toLocaleString())}.</footer>
     </div>`;
 }
 
@@ -2186,7 +2194,12 @@ const PDF_PAGE_HEIGHT = 1062; // CSS pixels of printable A4 at the report's 733p
 const PDF_PAGE_PADDING = 40;
 
 async function paginateReport(report) {
-  await Promise.all([...report.querySelectorAll('img')].map((img) => img.decode().catch(() => {})));
+  // A bounded load wait, not img.decode(), which never settles while a page isn't painting
+  await Promise.all([...report.querySelectorAll('img')].map((img) => (img.complete ? null : new Promise((resolve) => {
+    img.addEventListener('load', resolve, { once: true });
+    img.addEventListener('error', resolve, { once: true });
+    setTimeout(resolve, 2000);
+  }))));
   const blocks = [...report.children].map((node) => {
     const style = getComputedStyle(node);
     return { node, height: node.getBoundingClientRect().height + parseFloat(style.marginTop) + parseFloat(style.marginBottom) };
