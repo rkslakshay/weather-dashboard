@@ -195,6 +195,7 @@ The API route relies on Vercel's `api/` directory, so other static hosts would n
 - PDF text can't be selected.
 - Saved weather responses aren't cleaned up automatically.
 - Touch gestures and app install haven't been tested on a physical phone.
+- At 320px wide, the top bar wraps and overlaps the city name. Widths from 340px are clear.
 
 ## Future Scope
 

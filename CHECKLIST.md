@@ -2,7 +2,7 @@
 
 Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insights**. An item is only checked if it was verified. "Tested" means the automated tests in `test/`; "browser" means checked in a browser on a local server, running the same code against live forecast data.
 
-**Hosted deployments:** weather loading, search, all four activities, timeline sync, PDF generation and console and network errors were also checked on production, at merge commit `14fbcd5`. Unit switching, saved places, comparison and map tiles were checked on the Vercel preview of the same code.
+**Hosted deployments:** search, autocomplete, all four activities, timeline sync, charts, map layers, unit switching, saved places, comparison, PDF export and layout were also checked on production, at merge commit `4cb5154`. Location and offline handling were checked there with a simulated browser location and simulated network failure.
 
 ---
 
@@ -63,7 +63,8 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 - [x] °C/°F, and light and dark themes including the chart redraw (browser)
 - [x] The sky scene contains its overflow, so the hero can't be scrolled sideways (tested, browser)
 - [x] API key kept server-side through `api/weather.js`; can't be overridden and isn't returned (tested, code review)
-- [x] No horizontal overflow at 375px and 768px; layout checked at 1280px (browser)
+- [x] No horizontal overflow on a fresh load at 320px, 375px, 768px, 1024px, 1280px and 1920px (browser)
+- [ ] Top bar at 320px: it wraps to three rows and overlaps the city name; 340px and wider are clear (browser)
 - [x] Location button: denial, timeout and success handling, using a simulated browser location (browser)
 - [ ] Location button with a real browser permission prompt: not checked
 - [ ] Touch swiping on a real phone: not checked
