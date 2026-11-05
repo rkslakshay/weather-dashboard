@@ -2248,7 +2248,8 @@ el.pdfBtn.addEventListener('click', async () => {
   try {
     await paginateReport(wrap.firstElementChild);
     await html2pdf().set(pdfOptions(name)).from(wrap.firstElementChild).save();
-    toast('Report downloaded');
+    // The browser decides whether and when the file is saved, so don't claim it already was
+    toast('PDF report created. Check your downloads.');
   } catch (e) {
     toast("Couldn't create the PDF. Try again.");
   } finally {

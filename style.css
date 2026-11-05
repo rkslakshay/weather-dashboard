@@ -373,6 +373,8 @@ img { display: block; }
 }
 .scene {
   z-index: -1;
+  /* Drifting clouds extend past the edge; contain them so the hero has nothing to scroll */
+  overflow: hidden;
   background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 55%, var(--sky-bottom) 100%);
   transition: background .6s;
 }
