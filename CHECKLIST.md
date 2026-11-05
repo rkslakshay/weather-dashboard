@@ -2,7 +2,7 @@
 
 Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insights**. An item is only checked if it was verified. "Tested" means the automated tests in `test/`; "browser" means checked in a browser on a local server, running the same code against live forecast data.
 
-**Hosted deployments:** weather loading, search, all four activities, timeline sync, PDF download, unit switching, saved places, comparison, map tiles and console and network errors were also checked on the signed-in Vercel preview. Production only gets these features after merging.
+**Hosted deployments:** weather loading, search, all four activities, timeline sync, PDF generation and console and network errors were also checked on production, at merge commit `14fbcd5`. Unit switching, saved places, comparison and map tiles were checked on the Vercel preview of the same code.
 
 ---
 
@@ -43,7 +43,10 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 - [x] Fixed: reports came out blank when the page was scrolled (browser)
 - [x] Fixed: export froze if the page wasn't painting, as in a background tab (browser)
 - [x] Saved PDF bytes from the real export button parsed and rendered with pdf.js, not just the HTML (browser)
+- [x] A real production export saved to disk is a valid 3-page PDF (`%PDF` header, `%%EOF` trailer, page count)
+- [x] The confirmation no longer claims the file was saved, since the browser controls that step (tested)
 - [ ] Opened in a desktop PDF viewer such as Acrobat: not checked
+- [ ] Download timing in a normal Chrome window on production: awaiting a manual check
 - [ ] Selectable text: not available, because html2pdf embeds each page as an image
 
 ## PWA & Offline
@@ -58,6 +61,7 @@ Status of **SkyPulse — An Intelligent Weather Dashboard with Personalized Insi
 - [x] Weather map renders; all four layers return image tiles through the proxy (browser)
 - [x] Polar day and night: no invented sunrise, and the sky follows the API's day/night flag (browser)
 - [x] °C/°F, and light and dark themes including the chart redraw (browser)
+- [x] The sky scene contains its overflow, so the hero can't be scrolled sideways (tested, browser)
 - [x] API key kept server-side through `api/weather.js`; can't be overridden and isn't returned (tested, code review)
 - [x] No horizontal overflow at 375px and 768px; layout checked at 1280px (browser)
 - [x] Location button: denial, timeout and success handling, using a simulated browser location (browser)
